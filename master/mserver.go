@@ -10,7 +10,6 @@ import (
 
 func main() {
 	InitServer()
-	fmt.Println("This is done now")
-
-	time.Sleep(time.Second)
+	fmt.Println("Server has started")
+	time.Sleep(time.Second * 10)
 }
