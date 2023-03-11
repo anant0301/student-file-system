@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"gopkg.in/ini.v1"
 	// "github.com/joho/godotenv"
@@ -33,15 +35,22 @@ func (mcon *MongoConnector) connect() {
 		Password:      cfg.Section("mongodb").Key("password").String(),
 	}
 	// fmt.Println("MongoDB URI:", options.Client().ApplyURI(uri).SetAuth(credential))
-	mcon.client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri).SetAuth(credential))
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	mcon.client, err = mongo.Connect(ctx, options.Client().ApplyURI(uri).SetAuth(credential))
+	defer mcon.client.Disconnect(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid MongoDB URI\n")
 		panic(err)
 	}
-	var colls []string
+
+	// var colls []string
 	var nameonly bool = true
-	count, err := mcon.client.Database(db).Collection("users").CountDocuments(context.TODO(), bson.D{})
-	colls, err = mcon.client.Database(db).ListCollectionNames(context.TODO(), options.ListCollectionsOptions{NameOnly: &nameonly})
+	cursor, err := mcon.client.Database(db).Collection("users").Find(ctx, bson.D{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "MongoDB: Invalid access\n")
+		panic(err)
+	}
+	colls, err := mcon.client.Database(db).ListCollectionNames(ctx, options.ListCollectionsOptions{NameOnly: &nameonly})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "MongoDB: Invalid access\n")
 		panic(err)
@@ -49,5 +58,13 @@ func (mcon *MongoConnector) connect() {
 	for _, coll := range colls {
 		fmt.Println(coll)
 	}
-	fmt.Println(count)
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var episode bson.M
+		if err = cursor.Decode(&episode); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(episode)
+	}
+	// fmt.Println(cursor)
 }

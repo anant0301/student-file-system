@@ -5,11 +5,10 @@ package main
 //
 import (
 	"fmt"
-	"time"
 )
 
 func main() {
 	InitServer()
 	fmt.Println("Server has started")
-	time.Sleep(time.Second * 10)
+	// time.Sleep(time.Second * 10)
 }
