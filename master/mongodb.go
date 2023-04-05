@@ -17,7 +17,24 @@ import (
 
 type MongoConnector struct {
 	client *mongo.Client
-	coll   *mongo.Collection
+	db     *mongo.Database
+	// dbName string
+}
+
+type userCollection struct {
+	username string `bson:"username", json:"username"`
+}
+
+type filesCollectionRecord struct {
+	folderPath string `bson:"folderPath,omitempty", json:"folderPath,omitempty"`
+	fileName   string `bson:"fileName,omitempty", json:"fileName,omitempty"`
+	fileId     string `bson:"fileId,omitempty", json:"fileId,omitempty"`
+}
+
+func (mcon *MongoConnector) dbAssert(cond bool, errMsg string) {
+	if cond {
+		fmt.Printf("Error in DB: %s\n", errMsg)
+	}
 }
 
 func (mcon *MongoConnector) connect() {
@@ -36,28 +53,25 @@ func (mcon *MongoConnector) connect() {
 	}
 	// fmt.Println("MongoDB URI:", options.Client().ApplyURI(uri).SetAuth(credential))
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	// defer cancel()
 	mcon.client, err = mongo.Connect(ctx, options.Client().ApplyURI(uri).SetAuth(credential))
-	defer mcon.client.Disconnect(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid MongoDB URI\n")
 		panic(err)
 	}
+	mcon.db = mcon.client.Database(db)
+	mcon.getUsers("test1")
+	// fmt.Println(cursor)
+}
+
+// CRUD operations on user collection
+func (mcon *MongoConnector) getUsers(username string) {
 
 	// var colls []string
-	var nameonly bool = true
-	cursor, err := mcon.client.Database(db).Collection("users").Find(ctx, bson.D{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "MongoDB: Invalid access\n")
-		panic(err)
-	}
-	colls, err := mcon.client.Database(db).ListCollectionNames(ctx, options.ListCollectionsOptions{NameOnly: &nameonly})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "MongoDB: Invalid access\n")
-		panic(err)
-	}
-	for _, coll := range colls {
-		fmt.Println(coll)
-	}
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	cursor, err := mcon.db.Collection("users").Find(ctx, bson.D{{"username", username}})
+	mcon.dbAssert(err != nil, "getUser: Error in User Fetch")
+
 	defer cursor.Close(ctx)
 	for cursor.Next(ctx) {
 		var episode bson.M
@@ -66,5 +80,30 @@ func (mcon *MongoConnector) connect() {
 		}
 		fmt.Println(episode)
 	}
-	// fmt.Println(cursor)
+}
+
+// CRUD operations on file collection
+func (mcon *MongoConnector) getFilesFromFolder(folderPath string) {
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	log.Println("folderPath: ", folderPath)
+	cursor, err := mcon.db.Collection("files").Find(ctx, bson.D{{"folderPath", folderPath}})
+	mcon.dbAssert(err != nil, "getUser: Error in User Fetch")
+
+	defer cursor.Close(ctx)
+	var results []filesCollectionRecord
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		panic(err)
+	}
+
+	for _, result := range results {
+		fmt.Printf("%+v\n", result)
+	}
+	// for cursor.Next(ctx) {
+	// 	var episode bson.M
+	// 	var filesData = filesCollectionRecord{}
+	// 	if err = cursor.Decode(&episode); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	bson.Unmarshal(episode, &filesData)
+	// }
 }

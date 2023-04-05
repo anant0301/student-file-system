@@ -5,10 +5,14 @@ package main
 //
 import (
 	"fmt"
+	"time"
 )
 
 func main() {
-	InitServer()
+	c := InitServer()
 	fmt.Println("Server has started")
-	// time.Sleep(time.Second * 10)
+	fmt.Printf("%v\n", c.serverlist)
+	for {
+		time.Sleep(time.Second * 10)
+	}
 }

@@ -12,14 +12,14 @@ import (
 )
 
 type Coordinator struct {
-	mcon  MongoConnector
-	reqid int
+	mcon       MongoConnector
+	reqid      int
 	serverlist []int
 }
 
 func (c *Coordinator) init_mongo() {
-	mcon := MongoConnector{}
-	mcon.connect()
+	c.mcon = MongoConnector{}
+	c.mcon.connect()
 }
 
 func (c *Coordinator) server(host string, port int) {
@@ -45,5 +45,10 @@ func InitServer() *Coordinator {
 	c := Coordinator{}
 	c.server(host, port)
 	c.init_mongo()
+	c.mcon.getFilesFromFolder("/home/test1/Desktop")
 	return &c
+}
+
+func (c *Coordinator) ListFilesReq(args *ListFileArgs, reply *ListFileReply) {
+	c.mcon.getFilesFromFolder("/home/test1/Desktop")
 }
