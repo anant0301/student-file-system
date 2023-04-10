@@ -45,10 +45,22 @@ func InitServer() *Coordinator {
 	c := Coordinator{}
 	c.server(host, port)
 	c.init_mongo()
-	c.mcon.getFilesFromFolder("/home/test1/Desktop")
+	// c.mcon.getFile("/home/test1/Desktop")
+	c.mcon.getFile("/home/test1/Desktop", "test1.txt")
+	c.mcon.getFile("/home/test1/Desktop", "test2.txt")
+	c.mcon.getUser("test1")
 	return &c
 }
 
-func (c *Coordinator) ListFilesReq(args *ListFileArgs, reply *ListFileReply) {
-	c.mcon.getFilesFromFolder("/home/test1/Desktop")
+func (c *Coordinator) insertFileReq(args *InsertFileArgs, reply *InsertFileReply) {
+	// c.mcon.insertFile(args.FilePath, args.FileName)
+	c.mcon.insertFile("/home/test1/Desktop", "test1.txt")
+	c.mcon.insertFile("/home/test1/Desktop", "test2.txt")
+
+}
+
+func (c *Coordinator) ListFilesReq(args *ListFilesArgs, reply *ListFilesReply) {
+	// c.mcon.getFilesFromFolder("/home/test1/Desktop")
+	c.mcon.getFile("/home/test1/Desktop", "test1.txt")
+
 }
