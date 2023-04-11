@@ -11,7 +11,7 @@ import (
 func main() {
 	c := InitServer()
 	fmt.Println("Server has started")
-	fmt.Printf("%v\n", c.serverlist)
+	fmt.Printf("%v\n", c.dataNodes)
 	for {
 		time.Sleep(time.Second * 10)
 	}
