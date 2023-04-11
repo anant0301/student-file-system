@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gopkg.in/ini.v1"
@@ -64,15 +64,16 @@ func (mcon *MongoConnector) insertUser(username string, password string) {
 	mcon.dbAssert(err != nil, "Error in inserting user", err)
 }
 
-func (mcon *MongoConnector) getUser(username string) {
+func (mcon *MongoConnector) getUser(username string) userRecord {
 	collection := mcon.getCollection("users")
 	var result bson.M
 	err := collection.FindOne(context.TODO(), bson.M{"username": username}).Decode(&result)
-	mcon.dbAssert(err != nil, "Error in getting user", err)
-	var userdata userRecord
-	userdata.username = result["username"].(string)
-	userdata.password = result["password"].(string)
+	if mcon.dbAssert(err != nil, "Error in getting user", err) {
+		return userRecord{}
+	}
+	var userdata userRecord = getUserRecord(result)
 	fmt.Println(result)
+	return userdata
 }
 
 func (mcon *MongoConnector) deleteUser(username string) {
@@ -85,7 +86,7 @@ func (mcon *MongoConnector) insertFile(folderPath string, fileName string) bool 
 	collection := mcon.getCollection("files")
 	_, err := collection.InsertOne(context.TODO(), bson.M{"folderPath": folderPath, "fileName": fileName})
 	mcon.dbAssert(err != nil, "Error in inserting file", err)
-	return err = nil
+	return err == nil
 }
 
 /* CRUD operations for file structure */
@@ -106,39 +107,25 @@ func (mcon *MongoConnector) getFile(folderPath string, fileName string) filesRec
 		query = bson.M{}
 	}
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
-	mcon.dbAssert(err != nil, "Error in getting file", err)
-	var filedata filesRecord
-	filedata.folderPath = result["folderPath"].(string)
-	filedata.fileName = result["fileName"].(string)
-	filedata.id = result["_id"].(primitive.ObjectID)
-	filedata.lastModified = result["lastModified"].(primitive.DateTime)
+	if mcon.dbAssert(err != nil, "Error in getting file", err) {
+		return filesRecord{}
+	}
+	var filedata = getFileRecord(result)
 	fmt.Println(filedata)
 	return filedata
 }
 
-func (mcon *MongoConnector) getFilesFromFolder(folderPath string) {
+func (mcon *MongoConnector) getFilesFromFolder(folderPath string) []filesRecord {
 	collection := mcon.getCollection("files")
 	var result []bson.M
 	// var result interface{}
 
-	query := bson.M{"folderPath": folderPath, "fileName": fileName}
-	if folderPath == "" {
-		query = bson.M{"fileName": fileName}
-	}
-	if fileName == "" {
-		query = bson.M{"folderPath": folderPath}
-	}
-	if folderPath == "" && fileName == "" {
-		query = bson.M{}
-	}
+	query := bson.M{"folderPath": folderPath}
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
 	mcon.dbAssert(err != nil, "Error in getting file", err)
 	var filedata []filesRecord
 	for _, file := range result {
-		filedata.folderPath = append(filedata.folderPath, file["folderPath"].(string))
-		filedata.fileName = append(filedata.fileName, file["fileName"].(string))
-		filedata.id = append(filedata.id, file["_id"].(primitive.ObjectID))
-		filedata.lastModified = append(filedata.lastModified, file["lastModified"].(string))
+		filedata = append(filedata, getFileRecord(file))
 	}
 	fmt.Println(filedata)
 	return filedata
@@ -150,9 +137,11 @@ func (mcon *MongoConnector) deleteFile(folderPath string, fileName string) {
 	mcon.dbAssert(err != nil, "Error in deleting file", err)
 }
 
-func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) {
+func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) bool {
 	if condition {
-		fmt.Fprintf(os.Stderr, message, err)
-		panic(message)
+		log.Println(os.Stderr, message, err)
+		// panic(message)
+		return true
 	}
+	return false
 }
