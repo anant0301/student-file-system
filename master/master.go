@@ -12,9 +12,8 @@ import (
 )
 
 type Coordinator struct {
-	mcon       MongoConnector
-	reqid      int
-	serverlist []int
+	mcon      MongoConnector
+	dataNodes []int
 }
 
 func (c *Coordinator) init_mongo() {
