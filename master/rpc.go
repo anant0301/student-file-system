@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -10,12 +9,16 @@ type ListFilesArgs struct {
 	FolderPath string
 }
 
+type FileStruct struct {
+	FileId       string
+	FileNames    string
+	IsFolder     bool
+	FileModified time.Time
+	FileSize     int
+}
+
 type ListFilesReply struct {
-	FileId       []int
-	FileNames    []string
-	IsFolder     []bool
-	FileModified []time.Time
-	FileSize     []int
+	Files []FileStruct
 }
 
 type InsertFileArgs struct {
@@ -26,18 +29,39 @@ type InsertFileArgs struct {
 }
 
 type InsertFileReply struct {
-	FileId int
+	FileId string
 }
 
-func (c *Coordinator) InsertFileReq(args *InsertFileArgs, reply *InsertFileReply) {
-	// c.mcon.insertFile(args.FilePath, args.FileName)
-	c.mcon.insertFile("/home/test1/Desktop", "test1.txt")
-	c.mcon.insertFile("/home/test1/Desktop", "test2.txt")
-	fmt.Println("InsertFileReq")
+type DeleteFileArgs struct {
+	UserToken  string
+	FileId     string
+	FolderPath string
+	FileName   string
 }
 
-func (c *Coordinator) ListFilesReq(args *ListFilesArgs, reply *ListFilesReply) {
-	// c.mcon.getFilesFromFolder("/home/test1/Desktop")
-	c.mcon.getFile("/home/test1/Desktop", "test1.txt")
-	fmt.Println("ListFilesReq")
+type DeleteFileReply struct {
+	DeleteCount int
+}
+
+type GetFileArgs struct {
+	UserToken  string
+	FolderPath string
+	FileName   string
+	FileId     string
+}
+
+type GetFileReply struct {
+	NodeAddr    string
+	AccessToken string
+	FileId      string
+}
+
+type InsertFolderArgs struct {
+	UserToken  string
+	FolderName string
+	ParentPath string
+}
+
+type InsertFolderReply struct {
+	FolderId string
 }
