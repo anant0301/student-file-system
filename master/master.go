@@ -44,10 +44,5 @@ func InitServer() *Coordinator {
 	c := Coordinator{}
 	c.server(host, port)
 	c.init_mongo()
-	// c.mcon.getFile("/home/test1/Desktop")
-	c.mcon.getFile("/home/test1/Desktop", "test1.txt")
-	c.mcon.getFile("/home/test1/Desktop", "test2.txt")
-	c.mcon.getUser("test1")
 	return &c
 }
-
