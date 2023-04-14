@@ -11,6 +11,13 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+type DataNode struct {
+	Host      string
+	Id        int
+	FreeSpace int
+	Heartbeat int
+}
+
 type Coordinator struct {
 	mcon      MongoConnector
 	dataNodes []int
@@ -22,7 +29,7 @@ func (c *Coordinator) init_mongo() {
 }
 
 func (c *Coordinator) server(host string, port int) {
-	rpc.Register(c)
+	rpc.Ping(c)
 	rpc.HandleHTTP()
 	sockname := fmt.Sprintf("%s:%d", host, port)
 	l, e := net.Listen("tcp", sockname)
@@ -45,4 +52,10 @@ func InitServer() *Coordinator {
 	c.server(host, port)
 	c.init_mongo()
 	return &c
+}
+
+func (c *Coordinator) PingMaster(args *PingArgs, reply *PingReply) error {
+	fmt.Println("Pinging Master", args)
+	c.dataNodes = append(c.dataNodes, *args)
+	return nil
 }

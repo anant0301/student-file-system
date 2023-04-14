@@ -65,3 +65,13 @@ type InsertFolderArgs struct {
 type InsertFolderReply struct {
 	FolderId string
 }
+
+type PingArgs struct {
+	Addr      string
+	FreeSpace int
+}
+
+type PingReply struct {
+	Success bool
+	Id      int
+}
