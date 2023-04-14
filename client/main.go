@@ -128,7 +128,7 @@ func (n *Client) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*
 var _ = (fs.NodeOpener)((*Client)(nil))
 
 func (n *Client) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	fd, err := os.Open("/home/hari/Documents/Projects/student-file-system/files/" + n.file.name)
+	fd, err := os.Open("/home/anant/Desktop/Anant/student-file-system/files/" + n.file.name)
 	syscall.Dup(int(fd.Fd()))
 	if err != nil {
 		log.Fatal("Error Opening File")
