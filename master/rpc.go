@@ -11,7 +11,7 @@ type ListFilesArgs struct {
 
 type FileStruct struct {
 	FileId       string
-	FileNames    string
+	FileName     string
 	IsFolder     bool
 	FileModified time.Time
 	FileSize     int
