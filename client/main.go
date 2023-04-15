@@ -1,7 +1,7 @@
 package main
 
-// DOCS
-// https://pkg.go.dev/github.com/hanwen/go-fuse/v2/fs#FileHandle
+// REFERENCE DOCS
+// https://pkg.go.dev/github.com/hanwen/go-fuse/v2/fs
 
 import (
 	"context"
@@ -155,23 +155,23 @@ var _ = (fs.NodeReader)((*FSNode)(nil))
 // Read is part of the NodeReader interface.
 // It returns the content of the file as a byte array to the client.
 // Offset defines the starting point of the read.
-func (bn *FSNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
-	bn.mu.Lock()
-	defer bn.mu.Unlock()
+func (n *FSNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-	copy(dest, bn.content[off:])
+	copy(dest, n.content[off:])
 
 	return fuse.ReadResultData(dest), 0
 }
 
 // To Resize the temp content buffer in FSNode
-func (bn *FSNode) resize(sz uint64) {
-	if sz > uint64(cap(bn.content)) {
-		n := make([]byte, sz)
-		copy(n, bn.content)
-		bn.content = n
+func (n *FSNode) resize(sz uint64) {
+	if sz > uint64(cap(n.content)) {
+		new := make([]byte, sz)
+		copy(new, n.content)
+		n.content = new
 	} else {
-		bn.content = bn.content[:sz]
+		n.content = n.content[:sz]
 	}
 }
 
@@ -180,19 +180,55 @@ var _ = (fs.NodeGetattrer)((*FSNode)(nil))
 
 // Getattr is part of the NodeGetattrer interface.
 func (n *FSNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	// bn.mu.Lock()
-	// defer bn.mu.Unlock()
-	n.getattr(out)
-	return 0
-}
-
-// getattr fills out the AttrOut structure.
-func (n *FSNode) getattr(out *fuse.AttrOut) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	out.Size = uint64(n.file.sz)
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
 
 	// setting last modified time
 	out.SetTimes(nil, &time.Time{}, nil)
+
+	return 0
+}
+
+// Implement Setattr to support truncation of file.
+var _ = (fs.NodeSetattrer)((*FSNode)(nil))
+
+// Setattr is part of the NodeSetattrer interface.
+// It is used to truncate the file.
+func (n *FSNode) Setattr(ctx context.Context, fh fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	fmt.Println("Setattr:", in)
+	if sz, ok := in.GetSize(); ok {
+		n.resize(sz)
+		n.file.sz = uint64(sz)
+	}
+
+	out.Size = uint64(n.file.sz)
+	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
+
+	// setting last modified time
+	out.SetTimes(nil, &time.Time{}, nil)
+
+	return 0
+}
+
+// To Implement handleless write.
+var _ = (fs.NodeWriter)((*FSNode)(nil))
+
+// Write is part of the NodeWriter interface.
+// It writes the content of the file to the server. Offset defines the starting point of the write.
+func (n *FSNode) Write(ctx context.Context, fh fs.FileHandle, buf []byte, off int64) (uint32, syscall.Errno) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	sz := int64(len(buf))
+	n.file.sz = uint64(off + sz)
+	n.resize(uint64(off + sz))
+	copy(n.content[off:off+sz], buf)
+	return uint32(sz), 0
 }
 
 // Implement Fsync to support file sync
@@ -204,54 +240,11 @@ func (n *FSNode) Fsync(ctx context.Context, f fs.FileHandle, flags uint32) sysca
 	return 0
 }
 
-// Implement Setattr to support truncation of file.
-var _ = (fs.NodeSetattrer)((*FSNode)(nil))
-
-// Setattr is part of the NodeSetattrer interface.
-// It is used to truncate the file.
-func (bn *FSNode) Setattr(ctx context.Context, fh fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
-	bn.mu.Lock()
-	defer bn.mu.Unlock()
-
-	fmt.Println("Setattr:", in)
-	if sz, ok := in.GetSize(); ok {
-		fmt.Println("Size:", sz)
-		bn.resize(sz)
-		bn.file.sz = uint64(sz)
-	}
-	bn.getattr(out)
-	return 0
-}
-
-// To Implement handleless write.
-var _ = (fs.NodeWriter)((*FSNode)(nil))
-
-// Write is part of the NodeWriter interface.
-// It writes the content of the file to the server. Offset defines the starting point of the write.
-func (bn *FSNode) Write(ctx context.Context, fh fs.FileHandle, buf []byte, off int64) (uint32, syscall.Errno) {
-	bn.mu.Lock()
-	defer bn.mu.Unlock()
-	fmt.Println("Offset:", off)
-	fmt.Println("Buff", buf)
-	sz := int64(len(buf))
-
-	fmt.Println("Size in Write:", sz)
-	bn.file.sz = uint64(off + sz)
-	bn.resize(uint64(off + sz))
-	copy(bn.content[off:off+sz], buf)
-	return uint32(sz), 0
-}
-
 // To Implement Create
 var _ = (fs.NodeCreater)((*FSNode)(nil))
 
 // Create is part of the NodeCreater interface. It is called when a new file is created.
 func (n *FSNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	fmt.Println("Create:", name)
-	fmt.Println("Flags:", flags)
-	fmt.Println("Mode:", mode)
-	fmt.Println("Out:", out)
-
 	id := time.Now().Unix()
 	stable := fs.StableAttr{
 		Mode: fuse.S_IFREG,
@@ -301,14 +294,14 @@ func (n *FSNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.
 
 func main() {
 	// This is where we'll mount the FS
-	mntDir := "/home/hari/sfs1"
+	mntDir := "/tmp/sfs"
 	os.Mkdir(mntDir, 0777)
 	root := &FSNode{file: File{name: "/root", id: 0, fileType: FOLDER}}
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
-			// Set to true to see how the file system works.
 			AllowOther: true,
-			Debug:      true,
+			// Set to true to see how the file system works.
+			Debug: true,
 		},
 	})
 	if err != nil {
