@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	// "errors"
 	"fmt"
-	// "log"
-	// "os"
-	// "strings"
+	"math/big"
 	"syscall"
 	"time"
 
@@ -56,21 +53,24 @@ func (n *Client) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	r := make([]fuse.DirEntry, 0)
 
 	for _, val := range getDir() {
-		name := val.FileName
+		i := new(big.Int)
+		i.SetString(val.FileId, 16)
+		fmt.Println("Val:", val)
 		if val.IsFolder {
 			d := fuse.DirEntry{
 				Name: val.FileName,
 				Ino:  uint64(val.FileId), // Should be id of the file/ directory
 				Mode: fuse.S_IFDIR,       // folder
 			}
+			r = append(r, d)
 		} else {
 			d := fuse.DirEntry{
 				Name: val.FileName,
 				Ino:  uint64(val.FileId), // Should be id of the file/ directory
 				Mode: fuse.S_IFREG,       // file
 			}
+			r = append(r, d)
 		}
-		r = append(r, d)
 	}
 	return fs.NewListDirStream(r), 0
 }

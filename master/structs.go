@@ -20,11 +20,11 @@ type fileRecord struct {
 	fileSize     int
 }
 
-type folderRecord {
-	folderPath string
+type folderRecord struct {
+	folderPath   string
 	parentFolder string
 	lastModified time.Time
-	folderId string
+	folderId     string
 }
 
 type nodeRecord struct {

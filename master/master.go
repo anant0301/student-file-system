@@ -29,7 +29,7 @@ func (c *Coordinator) init_mongo() {
 }
 
 func (c *Coordinator) server(host string, port int) {
-	rpc.Ping(c)
+	// rpc.Ping(c)
 	rpc.HandleHTTP()
 	sockname := fmt.Sprintf("%s:%d", host, port)
 	l, e := net.Listen("tcp", sockname)
@@ -54,8 +54,8 @@ func InitServer() *Coordinator {
 	return &c
 }
 
-func (c *Coordinator) PingMaster(args *PingArgs, reply *PingReply) error {
-	fmt.Println("Pinging Master", args)
-	c.dataNodes = append(c.dataNodes, *args)
-	return nil
-}
+// func (c *Coordinator) PingMaster(args *PingArgs, reply *PingReply) error {
+// 	fmt.Println("Pinging Master", args)
+// 	c.dataNodes = append(c.dataNodes, *args)
+// 	return nil
+// }

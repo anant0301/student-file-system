@@ -35,12 +35,12 @@ func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
 func (c *Coordinator) ListFiles(args *ListFilesArgs, reply *ListFilesReply) error {
 	// c.mcon.getFilesFromFolder("/home/test1/Desktop")
 	// c.mcon.getFile("/home/test1/Desktop", "test1.txt")
-	// fmt.Println("ListFilesReq:", args)
+	fmt.Println("ListFilesReq:", args)
 	results := c.mcon.getFilesFromFolder(args.FolderPath)
 	for _, file := range results {
 		storefile := FileStruct{}
 		storefile.FileId = file.id
-		storefile.FileNames = file.fileName
+		storefile.FileName = file.fileName
 		storefile.FileModified = file.lastModified
 		storefile.FileSize = file.fileSize
 		reply.Files = append(reply.Files, storefile)
@@ -51,5 +51,6 @@ func (c *Coordinator) ListFiles(args *ListFilesArgs, reply *ListFilesReply) erro
 func (c *Coordinator) InsertFolder(args *InsertFolderArgs, reply *InsertFolderReply) error {
 	fmt.Println("InsertFolderReq")
 	result, _ := c.mcon.getFolder(args.ParentPath, args.FolderName)
+	fmt.Println("restult:", result)
 	return nil
 }

@@ -1,24 +1,22 @@
 package main
 
-
 /*
  * All the structures created are as per master node
  */
 import (
+	"log"
 	"net/rpc"
 	"time"
 )
 
 type User struct {
-	name string
-	client rpc.Client
-	UserToken string
+	client *rpc.Client
 }
 
-func (user *User)connectMaster() bool {
+func (user *User) connectMaster(host string) bool {
 	var err error
-	rpc.client, err = rpc.DialHTTP("tcp", "localhost:9000")
-	if (err == nil) {
+	user.client, err = rpc.DialHTTP("tcp", host)
+	if err != nil {
 		log.Fatal("Error in connecting to the Master node")
 		return false
 	}
@@ -43,11 +41,16 @@ type ListFilesReply struct {
 }
 
 // A temporary function that sends list of entries in a directory
-func (user *User)getDir() []File {
-	args = ListFilesArgs {
-		UserToken: user.name,
-		FolderPath: "/home/test1/Desktop"		
+func getDir() []FileStruct {
+	args := ListFilesArgs{
+		UserToken:  "test1",
+		FolderPath: "/home/test1/Desktop",
 	}
-	user.Call("Coordinator.ListFiles", &args, &reply)
-	return reply.FileStruct
+	reply := ListFilesReply{}
+	user := getUser()
+	_ = user.client.Call("Coordinator.ListFiles", &args, &reply)
+	// if err != nil {
+	// 	log.Fatal("Error in calling ListFiles")
+	// }
+	return reply.Files
 }

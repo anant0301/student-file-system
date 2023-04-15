@@ -47,13 +47,14 @@ func (mcon *MongoConnector) connect() {
 	// defer cancel()
 	mcon.client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri).SetAuth(credential))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid MongoDB URI\n")
+		log.Fatal(os.Stderr, "Invalid MongoDB URI\n")
 		panic(err)
+	} else {
+		fmt.Println("Connected to MongoDB")
 	}
 	mcon.db = mcon.client.Database(db)
 	mcon.colls = make(map[string]*mongo.Collection)
 	// fmt.Println(cursor)
-	fmt.Println("Connected to MongoDB")
 }
 
 func (mcon *MongoConnector) disconnect() {

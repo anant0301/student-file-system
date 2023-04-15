@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"syscall"
 	"time"
 
@@ -137,6 +136,7 @@ func (n *Client) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, 
 	return fh, 0, 0
 }
 
+<<<<<<< HEAD
 // Implement GetAttr to provide size and mtime
 var _ = (fs.NodeGetattrer)((*Client)(nil))
 
@@ -152,11 +152,17 @@ func (n *Client) getattr(out *fuse.AttrOut) {
 	out.SetTimes(nil, &time.Time{}, nil)
 }
 
+=======
+>>>>>>> 301ced2 (Commit: client branch rebase)
 func main() {
 	// This is where we'll mount the FS
 	mntDir := "/tmp/z"
 	os.Mkdir(mntDir, 0755)
 	root := &Client{file: File{name: "root", id: 0, fileType: FOLDER}}
+	rpc := user.connectMaster("127.0.0.1:9000")
+	if !rpc {
+		return
+	}
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
 			// Set to true to see how the file system works.
