@@ -41,6 +41,10 @@ func (c *Coordinator) InsertFile_done() {
 	//update database about insert file at all datanodes specified
 }
 
+func (c *Coordinator) DeleteFile_done() {
+	//update database about delete file at all datanodes specified
+}
+
 func main() {
 	master, err := rpc.DialHTTP("tcp", "localhost:9000")
 	if err != nil {
