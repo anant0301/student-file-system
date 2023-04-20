@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -34,34 +34,71 @@ type FSNode struct {
 }
 
 type File struct {
-	name     string
-	id       uint64
-	fileType bool
-	sz       uint64
+	name         string
+	id           uint64
+	idString     string
+	fileType     bool
+	sz           uint64
+	parentPath   string
+	parentId     string
+	modifiedTime time.Time
 }
 
-// Temporary initial files used for testing
-var files = []File{
-	{name: "/root/abc.txt", id: 1, fileType: FILE},
-	{name: "/root/bcd.txt", id: 2, fileType: FILE},
-	{name: "/root/def.txt", id: 3, fileType: FILE},
-	{name: "/root/efg.txt", id: 4, fileType: FILE},
-	{name: "/root/fgh.txt", id: 5, fileType: FILE},
-}
+func getDir(path string) []File {
+	files := make([]File, 0)
+	listFilesArgs := ListFilesArgs{UserToken: "abc", FolderPath: path}
+	listFilesReply := ListFilesReply{}
 
-// A temporary function that sends list of entries in a directory
-func getDir() []File {
+	err := Call("Coordinator.ListFiles", listFilesArgs, &listFilesReply)
+
+	if err != nil {
+		fmt.Println("Coordinator.ListFiles error: ", err)
+	}
+
+	fmt.Println("ListFilesReply: ", listFilesReply)
+
+	for _, file := range listFilesReply.Files {
+		id, _ := strconv.ParseUint(file.FileId[8:], 16, 64)
+		f := File{name: file.FileName, id: id, fileType: file.IsFolder, sz: uint64(file.FileSize), idString: file.FileId}
+		files = append(files, f)
+	}
+
 	return files
 }
 
+func getFilePath(file File) string {
+	return file.parentPath + "/" + file.name
+}
+
 // A temporary function that sends the file with the given name
-func getFile(name string) (File, error) {
-	for i := range files {
-		if files[i].name == name {
-			return files[i], nil
-		}
+func getFile(parent File, name string) (File, error) {
+	fmt.Println("Parent", parent)
+	fmt.Println("Name", name)
+	getFileArgs := GetFileArgs{UserToken: "abc", FolderPath: getFilePath(parent), FileName: name}
+	getFileReply := GetFileReply{File: FileStruct{FileId: "000000000000000000000000"}}
+	err := Call("Coordinator.GetFile", getFileArgs, &getFileReply)
+	if err != nil {
+		// log.Fatal("Coordinator.GetFile error: ", err)
+		fmt.Println("Coordinator.GetFile error: ", err)
 	}
-	return File{}, errors.New("File not found")
+
+	if getFileReply.File.FileId == "0" || getFileReply.File.FileId == "000000000000000000000000" {
+		return File{}, errors.New("File not found")
+	}
+
+	id, _ := strconv.ParseUint(getFileReply.File.FileId[8:24], 16, 64)
+	file := File{
+		name:         getFileReply.File.FileName,
+		id:           id,
+		fileType:     getFileReply.File.IsFolder,
+		sz:           uint64(getFileReply.File.FileSize),
+		idString:     getFileReply.File.FileId,
+		parentPath:   getFilePath(parent),
+		parentId:     parent.idString,
+		modifiedTime: getFileReply.File.FileModified,
+	}
+
+	return file, nil
 }
 
 // FUSE File Mode for reference
@@ -76,15 +113,17 @@ var _ = (fs.NodeReaddirer)((*FSNode)(nil))
 func (n *FSNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	r := make([]fuse.DirEntry, 0)
 
-	for _, val := range getDir() {
+	for _, val := range getDir(getFilePath(n.file)) {
 		var mode uint32
+
+		fmt.Println("File Val: ", val)
 		if val.fileType == FOLDER {
+			fmt.Println("Folder")
 			mode = fuse.S_IFDIR
 		} else {
 			mode = fuse.S_IFREG
 		}
-		slices := strings.Split(val.name, "/")
-		name := slices[len(slices)-1]
+		name := val.name
 		d := fuse.DirEntry{
 			Name: name,
 			Ino:  uint64(val.id), // Should be id of the file/ directory
@@ -102,7 +141,8 @@ var _ = (fs.NodeLookuper)((*FSNode)(nil))
 // It returns the file with the given name
 func (n *FSNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	// Get the file from the server
-	file, err := getFile(n.file.name + "/" + name)
+
+	file, err := getFile(n.file, name)
 
 	if err != nil {
 		return nil, syscall.ENOENT
@@ -110,6 +150,7 @@ func (n *FSNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*
 
 	var mode uint32 = fuse.S_IFREG
 	if file.fileType == FOLDER {
+		fmt.Println("Folder Lookup")
 		mode = fuse.S_IFDIR
 	}
 
@@ -122,7 +163,7 @@ func (n *FSNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*
 	}
 
 	// Create a new FSNode for the file
-	operations := &FSNode{file: File{name: file.name, id: file.id, fileType: file.fileType, sz: n.file.sz}}
+	operations := &FSNode{file: file}
 
 	// The NewInode call wraps the `operations` object into an Inode.
 	child := n.NewInode(ctx, operations, stable)
@@ -186,7 +227,7 @@ func (n *FSNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOu
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
 
 	// setting last modified time
-	out.SetTimes(nil, &time.Time{}, nil)
+	// out.SetTimes(nil, &n.file.modifiedTime, nil)
 
 	return 0
 }
@@ -262,7 +303,7 @@ func (n *FSNode) Create(ctx context.Context, name string, flags uint32, mode uin
 	// The NewInode call wraps the `operations` object into an Inode.
 	child := n.NewInode(ctx, operations, stable)
 
-	files = append(files, file)
+	// files = append(files, file)
 	return child, nil, 0, 0
 }
 
@@ -287,7 +328,7 @@ func (n *FSNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.
 
 	// The NewInode call wraps the `operations` object into an Inode.
 	child := n.NewInode(ctx, operations, stable)
-	files = append(files, file)
+	// files = append(files, file)
 
 	return child, 0
 }
@@ -296,7 +337,7 @@ func main() {
 	// This is where we'll mount the FS
 	mntDir := "/tmp/sfs"
 	os.Mkdir(mntDir, 0777)
-	root := &FSNode{file: File{name: "/root", id: 0, fileType: FOLDER}}
+	root := &FSNode{file: File{name: "test1", parentPath: "/home", id: 0, fileType: FOLDER}}
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
 			AllowOther: true,
