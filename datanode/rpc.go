@@ -19,6 +19,7 @@ type InsertFileArgs_c struct {
 
 type InsertFileReply_c struct {
 	Status bool
+	BytesWritten []byte
 }
 
 type InsertFileArgs_m struct {
