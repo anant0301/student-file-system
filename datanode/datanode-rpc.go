@@ -9,7 +9,7 @@ import (
 
 func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertFileReply_c) error {
 
-	fileWriteHandler, err := os.Create(dataNode.DataDirectory)
+	fileWriteHandler, err := os.Create(dataNode.DataDirectory+request.FileId)
 	if err != nil {
 			//panic(err)
 			*reply.Status = false
@@ -17,7 +17,7 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 	defer fileWriteHandler.Close()
 
 	fileWriter := bufio.NewWriter(fileWriteHandler)
-	_, err = fileWriter.WriteString(request.Data)
+	NoOfBytes, err = fileWriter.Write(request.Data)
 	if err != nil {
 			//panic(err)
 			*reply.Status = false
@@ -44,11 +44,34 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 		if rpcErr != nil {
 			//panic(rpcErr)
 			*reply.Status = false
+			*reply.BytesWritten = NoOfBytes
 		}
 	}
 
 	return nil
 }
+
+func (dataNode *DataNode) forwardedForReplication(request *InsertFileArgs_c, reply *InsertFileReply_c) error {
+
+	fileWriteHandler, err := os.Create(dataNode.DataDirectory+request.FileId)
+	if err != nil {
+			//panic(err)
+			*reply.Status = false
+	}
+	defer fileWriteHandler.Close()
+
+	fileWriter := bufio.NewWriter(fileWriteHandler)
+	NoOfBytes, err = fileWriter.Write(request.Data)
+	if err != nil {
+			//panic(err)
+			*reply.Status = false
+	}
+	fileWriter.Flush()
+	*reply.Status = true
+	return nil
+}
+
+
 
 func (dataNode *DataNode) forwardForReplication(string addr, request *InsertFileArgs_c, reply *InsertFileReply_c) error {
 
@@ -59,7 +82,7 @@ func (dataNode *DataNode) forwardForReplication(string addr, request *InsertFile
 		}
 	defer dataNodeInstance.Close()
 
-	rpcErr = dataNodeInstance.Call("DataNode.InsertFile_c", &request, &reply)
+	rpcErr = dataNodeInstance.Call("DataNode.forwardedForReplication", &request, &reply)
 	if rpcErr != nil {
 			//panic(rpcErr)
 			*reply.Status = false
