@@ -32,7 +32,10 @@ func listFilesTest(client *rpc.Client, folderPath string) {
 		FolderPath: folderPath,
 	}
 	reply := ListFilesReply{}
-	client.Call("Coordinator.ListFiles", &args, &reply)
+	err := client.Call("Coordinator.ListFiles", &args, &reply)
+	if err != nil {
+		log.Println("Error in calling ListFiles:", err)
+	}
 	fmt.Println("Args:", args, "reply:", reply)
 }
 
@@ -46,8 +49,18 @@ func deleteFileTest(client *rpc.Client, filename string) {
 	fmt.Println("Args:", args, "reply:", reply)
 }
 
+func insertFolder(client *rpc.Client, folderPath string, folderName string) {
+	args := InsertFolderArgs{
+		ParentPath: folderPath,
+		FolderName: folderName,
+	}
+	reply := InsertFolderReply{}
+	client.Call("Coordinator.InsertFolder", &args, &reply)
+	fmt.Println("Args:", args, "reply:", reply)
+}
+
 func main() {
-	client, err := rpc.DialHTTP("tcp", "localhost:9000")
+	client, err := rpc.DialHTTP("tcp", "0.0.0.0:9000")
 	if err != nil {
 		log.Println("Error in dialing rpc:", err)
 	}
@@ -57,5 +70,11 @@ func main() {
 	getFileTest(client, "test2.txt")
 	listFilesTest(client, "/home/test1/Desktop")
 	deleteFileTest(client, "test1.txt")
+	listFilesTest(client, "/home/test1/Desktop")
+
+	insertFolder(client, "/", "home")
+	insertFolder(client, "/home", "test1")
+	insertFolder(client, "/home/test1", "Desktop")
+	insertFolder(client, "/home/test1/Desktop", "testFolder")
 
 }

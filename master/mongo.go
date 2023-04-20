@@ -110,6 +110,15 @@ func (mcon *MongoConnector) getFile(folderPath string, fileName string) (fileRec
 	return filedata, nodeAddr
 }
 
+func (mcon *MongoConnector) updateFileSize(fileId string, fileSize int) int {
+	collection := mcon.getCollection("files")
+	id, err := primitive.ObjectIDFromHex(fileId)
+	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id},
+		bson.M{"$set": bson.M{"fileSize": fileSize}})
+	mcon.dbAssert(err != nil, "Error in updating file size", err)
+	return int(updated_id.ModifiedCount)
+}
+
 func (mcon *MongoConnector) getFilesFromFolder(folderPath string) []fileRecord {
 	collection := mcon.getCollection("files")
 	// var result interface{}
@@ -131,6 +140,27 @@ func (mcon *MongoConnector) getFilesFromFolder(folderPath string) []fileRecord {
 	return filedata
 }
 
+func (mcon *MongoConnector) getFoldersFromFolder(parentFolder string) []folderRecord {
+	collection := mcon.getCollection("folders")
+	// var result interface{}
+
+	query := bson.M{"parentFolder": parentFolder}
+
+	cur, err := collection.Find(context.TODO(), query)
+	if mcon.dbAssert(err != nil, "Error in getting folder from folder", err) {
+		return []folderRecord{}
+	}
+	var folderdata []folderRecord
+	var result bson.M
+	for cur.Next(context.TODO()) {
+		cur.Decode(&result)
+		folderdata = append(folderdata, getFolderRecord(result))
+	}
+
+	fmt.Println(folderdata)
+	return folderdata
+}
+
 func (mcon *MongoConnector) deleteFile(folderPath string, fileName string) int {
 	collection := mcon.getCollection("files")
 	deleted_id, err := collection.DeleteOne(context.TODO(), bson.M{"folderPath": folderPath, "fileName": fileName})
@@ -139,15 +169,20 @@ func (mcon *MongoConnector) deleteFile(folderPath string, fileName string) int {
 }
 
 /* CRUD Folder operations */
-func (mcon *MongoConnector) insertFolder(parentFolder string, folderName string) string {
+func (mcon *MongoConnector) insertFolder(parentFolder string, folderName string) (string, time.Time) {
 	collection := mcon.getCollection("folders")
+	created := time.Now()
+	folder, _ := mcon.getFolder(parentFolder, folderName)
+	if folder.folderPath != "" {
+		return "", created
+	}
 	inserted_id, err := collection.InsertOne(context.TODO(), bson.M{
 		"parentFolder": parentFolder,
 		"folderName":   folderName,
-		"lastModified": primitive.NewDateTimeFromTime(time.Now()),
+		"lastModified": primitive.NewDateTimeFromTime(created),
 	})
 	mcon.dbAssert(err != nil, "Error in inserting file", err)
-	return inserted_id.InsertedID.(primitive.ObjectID).Hex()
+	return inserted_id.InsertedID.(primitive.ObjectID).Hex(), created
 }
 
 func (mcon *MongoConnector) getFolder(parentFolder string, folderName string) (folderRecord, string) {
@@ -157,11 +192,14 @@ func (mcon *MongoConnector) getFolder(parentFolder string, folderName string) (f
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
 	nodeAddr := getFileNode("foldername")
 	if mcon.dbAssert(err != nil, "Error in getting folder", err) {
-		return folderRecord{}, nodeAddr
+		return folderRecord{folderPath: ""}, nodeAddr
 	}
 	var folderdata = getFolderRecord(result)
-	fmt.Println(folderdata)
 	return folderdata, nodeAddr
+}
+
+func (mcon *MongoConnector) deleteFolder() {
+
 }
 
 func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) bool {

@@ -44,7 +44,7 @@ func getFileRecord(file bson.M) fileRecord {
 
 func getFolderRecord(folder bson.M) folderRecord {
 	var folderdata folderRecord
-	folderdata.folderPath = folder["folderPath"].(string)
+	folderdata.folderPath = folder["folderName"].(string)
 	folderdata.parentFolder = folder["parentFolder"].(string)
 	folderdata.lastModified = folder["lastModified"].(primitive.DateTime).Time()
 	folderdata.folderId = folder["_id"].(primitive.ObjectID).Hex()

@@ -47,13 +47,12 @@ type GetFileArgs struct {
 	UserToken  string
 	FolderPath string
 	FileName   string
-	FileId     string
 }
 
 type GetFileReply struct {
 	NodeAddr    string
 	AccessToken string
-	FileId      string
+	File        FileStruct
 }
 
 type InsertFolderArgs struct {
@@ -63,7 +62,29 @@ type InsertFolderArgs struct {
 }
 
 type InsertFolderReply struct {
-	FolderId string
+	FolderId       string
+	FolderModified time.Time
+}
+
+type WriteFileArgs struct {
+	UserToken  string
+	FolderPath string
+	FileName   string
+	FileId     string
+}
+
+type WriteFileReply struct {
+	ServerId   string
+	ServerAddr string
+}
+
+type UpdateFileSizeArgs struct {
+	FileId   string
+	FileSize int
+}
+
+type UpdateFileSizeReply struct {
+	Done int
 }
 
 type PingArgs struct {
