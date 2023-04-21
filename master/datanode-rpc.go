@@ -23,6 +23,16 @@ type CreateFileReply_m struct {
 	Status bool
 }
 
+type DeleteFileArgs_m struct {
+	UserToken        string
+	FileId           string
+	ReplicationNodes []string
+}
+
+type DeleteFileReply_m struct {
+	Status bool
+}
+
 type GetReplicationNodesArgs struct{}
 
 type GetReplicationNodesReply struct {
@@ -45,7 +55,7 @@ func (c *Coordinator) Ping(args *PingArgs, reply *PingReply) error {
 	return nil
 }
 
-func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *GetReplicationNodesReply) {
+func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *GetReplicationNodesReply) error {
 	log.Println("GetReplicationNodes")
 	dnodes := c.mcon.getServers()
 	for _, dnode := range dnodes {
@@ -53,6 +63,7 @@ func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *
 			reply.ReplicationNodes = append(reply.ReplicationNodes, dnode.Addr)
 		}
 	}
+	return nil
 }
 
 func (c *Coordinator) Done(args *DoneArgs, reply *DoneReply) error {

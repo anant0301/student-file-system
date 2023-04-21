@@ -32,14 +32,14 @@ type nodeRecord struct {
 	nodeId   string
 }
 
-func getFileRecord(file bson.M) fileRecord {
+func getFileRecord(file bson.M) (fileRecord, string) {
 	var filedata fileRecord
 	filedata.folderPath = file["folderPath"].(string)
 	filedata.fileName = file["fileName"].(string)
 	filedata.id = file["_id"].(primitive.ObjectID).Hex()
 	filedata.lastModified = file["lastModified"].(primitive.DateTime).Time()
 	filedata.fileSize = 100
-	return filedata
+	return filedata, file["serverAddr"].(string)
 }
 
 func getFolderRecord(folder bson.M) folderRecord {
@@ -56,10 +56,6 @@ func getUserRecord(user bson.M) userRecord {
 	userdata.username = user["username"].(string)
 	userdata.password = user["password"].(string)
 	return userdata
-}
-
-func getFileNode(fileId string) string {
-	return "localhost:8080"
 }
 
 func getServer(server bson.M) DataNode {

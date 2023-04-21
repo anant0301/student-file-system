@@ -4,7 +4,7 @@ import "log"
 
 func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) error {
 	// c.mcon.insertFile(args.FilePath, args.FileName)
-	log.Println("InsertFileReq")
+	log.Println("InsertFileReq", args.FolderPath, args.FileName, args.FileSize)
 	result, _ := c.mcon.getFile(args.FolderPath, args.FileName)
 	if result.id != "" {
 		reply.FileId = "File already exists"
@@ -16,8 +16,32 @@ func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) e
 }
 
 func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) error {
-	log.Println("DeleteFileReq")
-	reply.DeleteCount = c.mcon.deleteFile(args.FolderPath, args.FileName)
+	log.Println("DeleteFileReq:", args.FolderPath, args.FileName)
+	file, _ := c.mcon.getFile(args.FolderPath, args.FileName)
+	if file.id == "" {
+		reply.DeleteCount = 0
+		return nil
+	}
+	var dnodes []DataNode
+	dnodes = c.mcon.getServers()
+	var addrs []string
+	for _, dnode := range dnodes {
+		addrs = append(addrs, dnode.Addr)
+	}
+	for _, dnode := range dnodes {
+		if dnode.IsAlive == true {
+			DeleteArgs := DeleteFileArgs_m{UserToken: "Access Token", ReplicationNodes: addrs, FileId: file.id}
+			DeleteReply := DeleteFileReply_m{}
+			ok := c.DialDataNode(dnode.Addr, "DataNode.DeleteFile_m", &DeleteArgs, &DeleteReply)
+			if ok == nil && DeleteReply.Status {
+				reply.DeleteCount = c.mcon.deleteFile(args.FolderPath, args.FileName)
+			} else {
+				reply.DeleteCount = 0
+			}
+			break
+		}
+	}
+
 	return nil
 }
 
@@ -28,7 +52,7 @@ func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
 	reply.AccessToken = "AccessToken"
 	if result.id == "" {
 		var folder folderRecord
-		folder, reply.NodeAddr = c.mcon.getFolder(args.FolderPath, args.FileName)
+		folder = c.mcon.getFolder(args.FolderPath, args.FileName)
 		if folder.folderId == "" {
 			reply.File.FileId = "0" // File not found
 			return nil

@@ -34,7 +34,6 @@ type InsertFileReply struct {
 
 type DeleteFileArgs struct {
 	UserToken  string
-	FileId     string
 	FolderPath string
 	FileName   string
 }

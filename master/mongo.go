@@ -108,11 +108,10 @@ func (mcon *MongoConnector) getFile(folderPath string, fileName string) (fileRec
 	var result bson.M
 	query := bson.M{"folderPath": folderPath, "fileName": fileName}
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
-	nodeAddr := getFileNode("filename")
 	if mcon.dbAssert(err != nil, "Error in getting file", err) {
-		return fileRecord{}, nodeAddr
+		return fileRecord{}, ""
 	}
-	var filedata = getFileRecord(result)
+	filedata, nodeAddr := getFileRecord(result)
 	fmt.Println(filedata)
 	return filedata, nodeAddr
 }
@@ -140,10 +139,9 @@ func (mcon *MongoConnector) getFilesFromFolder(folderPath string) []fileRecord {
 	var result bson.M
 	for cur.Next(context.TODO()) {
 		cur.Decode(&result)
-		filedata = append(filedata, getFileRecord(result))
+		file, _ := getFileRecord(result)
+		filedata = append(filedata, file)
 	}
-
-	fmt.Println(filedata)
 	return filedata
 }
 
@@ -179,7 +177,7 @@ func (mcon *MongoConnector) deleteFile(folderPath string, fileName string) int {
 func (mcon *MongoConnector) insertFolder(parentFolder string, folderName string) (string, time.Time) {
 	collection := mcon.getCollection("folders")
 	created := time.Now()
-	folder, _ := mcon.getFolder(parentFolder, folderName)
+	folder := mcon.getFolder(parentFolder, folderName)
 	if folder.folderPath != "" {
 		return "", created
 	}
@@ -192,17 +190,16 @@ func (mcon *MongoConnector) insertFolder(parentFolder string, folderName string)
 	return inserted_id.InsertedID.(primitive.ObjectID).Hex(), created
 }
 
-func (mcon *MongoConnector) getFolder(parentFolder string, folderName string) (folderRecord, string) {
+func (mcon *MongoConnector) getFolder(parentFolder string, folderName string) folderRecord {
 	collection := mcon.getCollection("folders")
 	var result bson.M
 	query := bson.M{"parentFolder": parentFolder, "folderName": folderName}
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
-	nodeAddr := getFileNode("foldername")
 	if mcon.dbAssert(err != nil, "Error in getting folder", err) {
-		return folderRecord{folderPath: ""}, nodeAddr
+		return folderRecord{folderPath: ""}
 	}
 	var folderdata = getFolderRecord(result)
-	return folderdata, nodeAddr
+	return folderdata
 }
 
 func (mcon *MongoConnector) deleteFolder(parentFolder string, folderName string) int {
