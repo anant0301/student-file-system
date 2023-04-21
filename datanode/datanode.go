@@ -12,15 +12,17 @@ import (
 )
 
 type DataNode struct {
-	Host        string
-	Id          int
-	FreeSpace   int
-	Heartbeat   int
-	ClientToken string
+	Host          string
+	Id            int
+	FreeSpace     int
+	Heartbeat     int
+	ClientToken   string
+	DataDirectory string
 }
 
 func (d *DataNode) server(host string, port int) {
 	// rpc.Ping(c)
+	rpc.Register(d)
 	rpc.HandleHTTP()
 	sockname := fmt.Sprintf("%s:%d", host, port)
 	l, e := net.Listen("tcp", sockname)
@@ -40,6 +42,8 @@ func InitServer() *DataNode {
 	var port int = cfg.Section("rpc").Key("port").MustInt()
 	fmt.Println("RPC Conenction", host, port)
 	c := DataNode{}
+	//c.Ping()
+
 	c.server(host, port)
 	return &c
 }
