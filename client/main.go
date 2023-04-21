@@ -42,9 +42,10 @@ type File struct {
 	parentPath   string
 	parentId     string
 	modifiedTime time.Time
+	dataNodeAddr string
 }
 
-func getDir(path string) []File {
+func getDir(path string) ([]File, error) {
 	files := make([]File, 0)
 	listFilesArgs := ListFilesArgs{UserToken: "abc", FolderPath: path}
 	listFilesReply := ListFilesReply{}
@@ -53,6 +54,7 @@ func getDir(path string) []File {
 
 	if err != nil {
 		fmt.Println("Coordinator.ListFiles error: ", err)
+		return files, err
 	}
 
 	fmt.Println("ListFilesReply: ", listFilesReply)
@@ -63,14 +65,18 @@ func getDir(path string) []File {
 		files = append(files, f)
 	}
 
-	return files
+	return files, nil
 }
 
 func getFilePath(file File) string {
 	return file.parentPath + "/" + file.name
 }
 
-// A temporary function that sends the file with the given name
+func getFileIdFromString(idString string) uint64 {
+	id, _ := strconv.ParseUint(idString[8:], 16, 64)
+	return id
+}
+
 func getFile(parent File, name string) (File, error) {
 	fmt.Println("Parent", parent)
 	fmt.Println("Name", name)
@@ -96,6 +102,7 @@ func getFile(parent File, name string) (File, error) {
 		parentPath:   getFilePath(parent),
 		parentId:     parent.idString,
 		modifiedTime: getFileReply.File.FileModified,
+		dataNodeAddr: getFileReply.NodeAddr,
 	}
 
 	return file, nil
@@ -113,7 +120,14 @@ var _ = (fs.NodeReaddirer)((*FSNode)(nil))
 func (n *FSNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	r := make([]fuse.DirEntry, 0)
 
-	for _, val := range getDir(getFilePath(n.file)) {
+	dirList, err := getDir(getFilePath(n.file))
+
+	if err != nil {
+		fmt.Println("Error in Readdir: ", err)
+		return fs.NewListDirStream(r), 0
+	}
+
+	for _, val := range dirList {
 		var mode uint32
 
 		fmt.Println("File Val: ", val)
@@ -200,7 +214,38 @@ func (n *FSNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off in
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	copy(dest, n.content[off:])
+	getFileArgs := GetFileArgs{
+		UserToken:  "abc",
+		FolderPath: n.file.parentPath,
+		FileName:   n.file.name,
+	}
+
+	getFileReply := GetFileReply{}
+
+	log.Println("Read Get File Args:", getFileArgs)
+
+	err := Call("Coordinator.GetFile", getFileArgs, &getFileReply)
+	if err != nil {
+		log.Println("Error in GetFile RPC in Read", err)
+		return fuse.ReadResultData(dest), syscall.ECONNABORTED
+	}
+
+	getFileArg_c := GetFileArgs_c{
+		AccessToken: "abc",
+		FileId:      n.file.idString,
+		Offset:      int64(off),
+		SizeOfChunk: int64(len(dest)),
+	}
+	getFileReply_c := GetFileReply_c{}
+
+	err1 := CallDataNode(getFileReply.NodeAddr, "DataNode.GetFile_c", getFileArg_c, &getFileReply_c)
+
+	if err1 != nil {
+		log.Println("Error in GetFile_c RPC in Read", err)
+		return fuse.ReadResultData(dest), syscall.ECONNABORTED
+	}
+
+	copy(dest, getFileReply_c.Data)
 
 	return fuse.ReadResultData(dest), 0
 }
@@ -223,6 +268,7 @@ var _ = (fs.NodeGetattrer)((*FSNode)(nil))
 func (n *FSNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+	fmt.Println("Getattr:", n.file.name)
 	out.Size = uint64(n.file.sz)
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
 
@@ -241,11 +287,11 @@ func (n *FSNode) Setattr(ctx context.Context, fh fs.FileHandle, in *fuse.SetAttr
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	fmt.Println("Setattr:", in)
-	if sz, ok := in.GetSize(); ok {
-		n.resize(sz)
-		n.file.sz = uint64(sz)
-	}
+	// fmt.Println("Setattr:", in)
+	// if sz, ok := in.GetSize(); ok {
+	// 	n.resize(sz)
+	// 	n.file.sz = uint64(sz)
+	// }
 
 	out.Size = uint64(n.file.sz)
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
@@ -265,11 +311,53 @@ func (n *FSNode) Write(ctx context.Context, fh fs.FileHandle, buf []byte, off in
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	sz := int64(len(buf))
-	n.file.sz = uint64(off + sz)
-	n.resize(uint64(off + sz))
-	copy(n.content[off:off+sz], buf)
-	return uint32(sz), 0
+	getFileArgs := GetFileArgs{
+		UserToken:  "abc",
+		FolderPath: n.file.parentPath,
+		FileName:   n.file.name,
+	}
+
+	getFileReply := GetFileReply{}
+
+	log.Println("Write Get File Args:", getFileArgs)
+
+	err := Call("Coordinator.GetFile", getFileArgs, &getFileReply)
+	if err != nil {
+		log.Println("Error in GetFile RPC in Write", err)
+		return 0, syscall.ECONNABORTED
+	}
+
+	insertFileArgs_c := InsertFileArgs_c{
+		Data:   buf,
+		Offset: int64(off),
+		FileId: n.file.idString,
+	}
+	insertFileReply_c := InsertFileReply_c{}
+
+	log.Println("Write Insert File Args:", len(insertFileArgs_c.Data))
+
+	log.Println("GetFile Reply: ", getFileReply)
+	err = CallDataNode(getFileReply.NodeAddr, "DataNode.InsertFile_c", insertFileArgs_c, &insertFileReply_c)
+
+	if err != nil {
+		log.Println("Error in InsertFile RPC in Write 123", err)
+		return 0, syscall.ECONNABORTED
+	}
+
+	if insertFileReply_c.Status == false {
+		log.Println("Error in InsertFile RPC in Write: server replied false")
+		return 0, syscall.ECONNABORTED
+	}
+
+	log.Println("Write Success:", off)
+	log.Println("Write: ", n.file.sz)
+
+	n.file.sz = uint64(insertFileReply_c.FileSize)
+
+	log.Println("Write Reply: ", insertFileReply_c)
+
+	log.Println("Write: File Size ", n.file.sz)
+	return uint32(n.file.sz), 0
 }
 
 // Implement Fsync to support file sync
@@ -281,23 +369,63 @@ func (n *FSNode) Fsync(ctx context.Context, f fs.FileHandle, flags uint32) sysca
 	return 0
 }
 
+// var _ = (fs.NodeGetxattrer)((*FSNode)(nil))
+
+// func (n *FSNode) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
+// 	log.Println("Getxattr:", attr)
+// 	log.Println("Getxattr: Dest", dest)
+// 	return 0, 0
+// }
+
 // To Implement Create
 var _ = (fs.NodeCreater)((*FSNode)(nil))
 
 // Create is part of the NodeCreater interface. It is called when a new file is created.
 func (n *FSNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	id := time.Now().Unix()
+	// Create a new file in the datanode
+	createFileArgs_m := CreateFileArgs_m{UserToken: "abc", FolderPath: getFilePath(n.file), FileName: name}
+	createFileReply_m := CreateFileReply_m{}
+
+	err_m := Call("Coordinator.CreateFile", createFileArgs_m, &createFileReply_m)
+
+	if err_m != nil {
+		fmt.Println("Error in creating file in master", err_m)
+	}
+
+	fmt.Println("File created in master", createFileReply_m)
+	idString := createFileReply_m.FileId
+
+	createFileArgs_dn := CreateFileArgs_dn{FileId: idString}
+	createFileReply_dn := CreateFileReply_dn{}
+
+	err := CallDataNode(createFileReply_m.ServerAddr, "DataNode.CreateFile_c", createFileArgs_dn, &createFileReply_dn)
+
+	if err != nil {
+		fmt.Println("Error in creating file in datanode", err)
+	}
+	fmt.Println("File created in dn", createFileReply_dn)
+
+	id := getFileIdFromString(idString)
 	stable := fs.StableAttr{
 		Mode: fuse.S_IFREG,
 		// The child inode is identified by its Inode number.
 		// If multiple concurrent lookups try to find the same
 		// inode, they are deduplicated on this key.
-		Ino: uint64(id),
+		Ino: id,
 	}
 
 	fileType := FILE
 
-	file := File{name: n.file.name + "/" + name, id: uint64(id), fileType: fileType, sz: 0}
+	file := File{
+		name:         name,
+		id:           id,
+		idString:     idString,
+		fileType:     fileType,
+		sz:           0,
+		parentPath:   getFilePath(n.file),
+		parentId:     n.file.idString,
+		modifiedTime: time.Now(),
+	}
 	operations := &FSNode{file: file}
 
 	// The NewInode call wraps the `operations` object into an Inode.
@@ -313,17 +441,34 @@ var _ = (fs.NodeMkdirer)((*FSNode)(nil))
 // Mkdir is part of the NodeMkdirer interface. It is called when a new folder is created.
 func (n *FSNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	fileType := FOLDER
-	id := time.Now().Unix()
+	insertFolderArgs := InsertFolderArgs{FolderName: name, ParentPath: getFilePath(n.file), UserToken: "123"}
+	insertFolderReply := InsertFolderReply{}
+	err := Call("Coordinator.InsertFolder", insertFolderArgs, &insertFolderReply)
+	if err != nil {
+		fmt.Println("Mkdir: Error in calling Coordinator.InsertFolder", err)
+	}
+
+	id := getFileIdFromString(insertFolderReply.FolderId)
 
 	stable := fs.StableAttr{
 		Mode: fuse.S_IFDIR,
 		// The child inode is identified by its Inode number.
 		// If multiple concurrent lookups try to find the same
 		// inode, they are deduplicated on this key.
-		Ino: uint64(id),
+		Ino: id,
 	}
 
-	file := File{name: n.file.name + "/" + name, id: uint64(id), fileType: fileType, sz: 0}
+	file := File{
+		name:         name,
+		id:           id,
+		idString:     insertFolderReply.FolderId,
+		fileType:     fileType,
+		sz:           0,
+		parentPath:   getFilePath(n.file),
+		parentId:     n.file.idString,
+		modifiedTime: insertFolderReply.FolderModified,
+	}
+
 	operations := &FSNode{file: file}
 
 	// The NewInode call wraps the `operations` object into an Inode.
@@ -331,6 +476,46 @@ func (n *FSNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.
 	// files = append(files, file)
 
 	return child, 0
+}
+
+var _ = (fs.NodeUnlinker)((*FSNode)(nil))
+
+func (n *FSNode) Unlink(ctx context.Context, name string) syscall.Errno {
+	fmt.Println("Unlink:", name)
+	fmt.Println("Unlink: File:", n.file)
+
+	deleteFileArgs := DeleteFileArgs{
+		UserToken:  "123",
+		FolderPath: getFilePath(n.file),
+		FileName:   name,
+	}
+
+	fmt.Println("Unlink: DeleteFileArgs:", deleteFileArgs)
+	deleteFileReply := DeleteFileReply{}
+
+	err := Call("Coordinator.DeleteFile", deleteFileArgs, &deleteFileReply)
+
+	if err != nil {
+		fmt.Println("Unlink: Error in calling Coordinator.DeleteFile", err)
+	}
+
+	return 0
+}
+
+var _ = (fs.NodeRmdirer)((*FSNode)(nil))
+
+func (n *FSNode) Rmdir(ctx context.Context, name string) syscall.Errno {
+	fmt.Println("Rmdir:", name)
+	fmt.Println("Rmdir: File:", n.file)
+	deleteFolderArgs := DeleteFolderArgs{FolderName: name, ParentPath: getFilePath(n.file), UserToken: "123"}
+	deleteFolderReply := DeleteFolderReply{}
+
+	err := Call("Coordinator.DeleteFolder", deleteFolderArgs, &deleteFolderReply)
+	if err != nil {
+		fmt.Println("Rmdir: Error in calling Coordinator.DeleteFolder", err)
+	}
+
+	return 0
 }
 
 func main() {
