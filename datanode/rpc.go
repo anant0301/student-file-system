@@ -31,11 +31,11 @@ type InsertFileArgs_c struct {
 	Data         []byte
 	FileId       string
 	Offset       int64
-	BytesWritten []byte
 }
 
 type InsertFileReply_c struct {
 	Status bool
+	FileSize	int64
 }
 
 type InsertFileArgs_m struct {
@@ -138,5 +138,15 @@ type DoneArgs struct {
 }
 
 type DoneReply struct {
+	Status bool
+}
+
+type DeleteFileArgs_m struct{
+	FileId string
+	ReplicationNodes []string
+	UserToken	string
+}
+
+type DeleteFileReply_m struct{
 	Status bool
 }
