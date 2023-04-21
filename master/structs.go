@@ -61,3 +61,15 @@ func getUserRecord(user bson.M) userRecord {
 func getFileNode(fileId string) string {
 	return "localhost:8080"
 }
+
+func getServer(server bson.M) DataNode {
+	var dnode DataNode
+	lastModified := server["time"].(primitive.DateTime).Time()
+	if time.Since(lastModified) > 60*time.Second {
+		dnode.IsAlive = false
+	} else {
+		dnode.IsAlive = true
+	}
+	dnode.Addr = server["serverAddr"].(string)
+	return dnode
+}

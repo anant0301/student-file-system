@@ -59,6 +59,16 @@ func insertFolder(client *rpc.Client, folderPath string, folderName string) {
 	fmt.Println("Args:", args, "reply:", reply)
 }
 
+func deleteFolder(client *rpc.Client, folderPath string, folderName string) {
+	args := DeleteFolderArgs{
+		ParentPath: folderPath,
+		FolderName: folderName,
+	}
+	reply := DeleteFolderReply{}
+	client.Call("Coordinator.DeleteFolder", &args, &reply)
+	fmt.Println("Args:", args, "reply:", reply)
+}
+
 func main() {
 	client, err := rpc.DialHTTP("tcp", "0.0.0.0:9000")
 	if err != nil {
@@ -76,5 +86,6 @@ func main() {
 	insertFolder(client, "/home", "test1")
 	insertFolder(client, "/home/test1", "Desktop")
 	insertFolder(client, "/home/test1/Desktop", "testFolder")
+	deleteFolder(client, "/home/test1/Desktop", "testFolder")
 
 }

@@ -11,8 +11,8 @@ import (
 func main() {
 	c := InitServer()
 	fmt.Println("Server has started")
-	fmt.Printf("%v\n", c.dataNodes)
 	for {
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 100)
+		fmt.Println("Data Nodes Available", c.mcon.getServers())
 	}
 }

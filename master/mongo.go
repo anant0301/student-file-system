@@ -86,14 +86,21 @@ func (mcon *MongoConnector) deleteUser(username string) {
 }
 
 /* CRUD operations for file structure */
-func (mcon *MongoConnector) insertFile(folderPath string, fileName string, fileSize int) string {
+func (mcon *MongoConnector) insertFile(folderPath string, fileName string, fileSize int, serverAddr string) string {
 	collection := mcon.getCollection("files")
-	inserted_id, err := collection.InsertOne(context.TODO(), bson.M{
-		"folderPath": folderPath, "fileName": fileName, "fileSize": fileSize,
-		"lastModified": primitive.NewDateTimeFromTime(time.Now()),
-	})
+	opts := options.Update().SetUpsert(true)
+	inserted_id, err := collection.UpdateOne(context.TODO(), bson.M{
+		"folderPath": folderPath, "fileName": fileName, "fileSize": fileSize},
+		bson.M{
+			"$set": bson.M{
+				"lastModified": primitive.NewDateTimeFromTime(time.Now()),
+				"serverAddr":   serverAddr,
+				"done":         false,
+			}}, opts)
+	// fmt.Println("Result:", inserted_id)
 	mcon.dbAssert(err != nil, "Error in inserting file", err)
-	return inserted_id.InsertedID.(primitive.ObjectID).Hex()
+	return inserted_id.UpsertedID.(primitive.ObjectID).Hex()
+	// _id.(primitive.ObjectID).Hex()
 }
 
 func (mcon *MongoConnector) getFile(folderPath string, fileName string) (fileRecord, string) {
@@ -198,8 +205,11 @@ func (mcon *MongoConnector) getFolder(parentFolder string, folderName string) (f
 	return folderdata, nodeAddr
 }
 
-func (mcon *MongoConnector) deleteFolder() {
-
+func (mcon *MongoConnector) deleteFolder(parentFolder string, folderName string) int {
+	collection := mcon.getCollection("folders")
+	deleted_id, err := collection.DeleteOne(context.TODO(), bson.M{"parentFolder": parentFolder, "folderName": folderName})
+	mcon.dbAssert(err != nil, "Error in deleting folder", err)
+	return int(deleted_id.DeletedCount)
 }
 
 func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) bool {
@@ -209,4 +219,48 @@ func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) 
 		return true
 	}
 	return false
+}
+
+// func (mcon *MongoConnector) addDataNode(serverAddr string) {
+// 	collection := mcon.getCollection("servers")
+// 	_, err := collection.InsertOne(context.TODO(), bson.M{
+// 		"serverAddr": serverAddr,
+// 	})
+// 	mcon.dbAssert(err != nil, "Error in adding server", err)
+// }
+
+func (mcon *MongoConnector) getServers() []DataNode {
+	collection := mcon.getCollection("servers")
+	cur, err := collection.Find(context.TODO(), bson.M{})
+	if mcon.dbAssert(err != nil, "Error in getting servers", err) {
+		return []DataNode{}
+	}
+	var result bson.M
+	var dnodes []DataNode
+	for cur.Next(context.TODO()) {
+		cur.Decode(&result)
+		dnodes = append(dnodes, getServer(result))
+	}
+	return dnodes
+}
+
+func (mcon *MongoConnector) updateDataNode(serverAddr string, status bool) int {
+	collection := mcon.getCollection("servers")
+	opts := options.Update().SetUpsert(true)
+	upid, err := collection.UpdateOne(context.TODO(), bson.M{"serverAddr": serverAddr},
+		bson.M{"$set": bson.M{"time": primitive.NewDateTimeFromTime(time.Now())}}, opts)
+	mcon.dbAssert(err != nil, "Error in updating server", err)
+	return int(upid.ModifiedCount)
+}
+
+func (mcon *MongoConnector) updateFileDone(fileId string, fileSize int64) int {
+	collection := mcon.getCollection("files")
+	id, err := primitive.ObjectIDFromHex(fileId)
+	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id},
+		bson.M{"$set": bson.M{
+			"fileSize": fileSize, "lastModified": primitive.NewDateTimeFromTime(time.Now()),
+			"done": true,
+		}})
+	mcon.dbAssert(err != nil, "Error in updating file size", err)
+	return int(updated_id.ModifiedCount)
 }

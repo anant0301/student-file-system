@@ -66,16 +66,25 @@ type InsertFolderReply struct {
 	FolderModified time.Time
 }
 
-type WriteFileArgs struct {
+type CreateFileArgs struct {
 	UserToken  string
 	FolderPath string
 	FileName   string
-	FileId     string
 }
 
-type WriteFileReply struct {
-	ServerId   string
+type CreateFileReply struct {
+	FileId     string
 	ServerAddr string
+}
+
+type DeleteFolderArgs struct {
+	UserToken  string
+	ParentPath string
+	FolderName string
+}
+
+type DeleteFolderReply struct {
+	DeleteCount int
 }
 
 type UpdateFileSizeArgs struct {
@@ -93,6 +102,5 @@ type PingArgs struct {
 }
 
 type PingReply struct {
-	Success bool
-	Id      int
+	Status bool
 }

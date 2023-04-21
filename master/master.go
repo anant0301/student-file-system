@@ -12,8 +12,7 @@ import (
 )
 
 type Coordinator struct {
-	mcon      MongoConnector
-	dataNodes []int
+	mcon MongoConnector
 }
 
 func (c *Coordinator) init_mongo() {
@@ -47,8 +46,12 @@ func InitServer() *Coordinator {
 	return &c
 }
 
-// func (c *Coordinator) PingMaster(args *PingArgs, reply *PingReply) error {
-// 	fmt.Println("Pinging Master", args)
-// 	c.dataNodes = append(c.dataNodes, *args)
-// 	return nil
-// }
+func (c *Coordinator) DialDataNode(serverAddr string, rpcCall string, args interface{}, reply interface{}) error {
+	client, err := rpc.DialHTTP("tcp", serverAddr)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	// Synchronous call
+	ok := client.Call(rpcCall, args, reply)
+	return ok
+}
