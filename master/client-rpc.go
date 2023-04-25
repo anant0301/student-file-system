@@ -10,8 +10,7 @@ func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) e
 		reply.FileId = "File already exists"
 		return nil
 	}
-
-	reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, args.FileSize, "")
+	reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, args.FileSize)
 	return nil
 }
 
@@ -22,6 +21,12 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 		reply.DeleteCount = 0
 		return nil
 	}
+	// lock := c.mcon.getLock(file.id)
+	// if lock == false {
+	// 	reply.DeleteCount = -1
+	// 	return nil
+	// }
+
 	var dnodes []DataNode
 	dnodes = c.mcon.getServers()
 	var addrs []string
@@ -88,7 +93,7 @@ func (c *Coordinator) CreateFile(args *CreateFileArgs, reply *CreateFileReply) e
 			createReply := CreateFileReply_m{}
 			if ok := c.DialDataNode(dnode.Addr, "DataNode.CreateFile_m", &createArgs, &createReply); ok == nil {
 				reply.ServerAddr = dnode.Addr
-				reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, 0, dnode.Addr)
+				reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, 0)
 			} else {
 				reply.ServerAddr = ""
 			}

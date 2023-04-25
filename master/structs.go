@@ -32,6 +32,14 @@ type nodeRecord struct {
 	nodeId   string
 }
 
+type logRecord struct {
+	address     string
+	fileId      string
+	lastUpdated time.Time
+	operation   string
+	fileSize    int
+}
+
 func getFileRecord(file bson.M) (fileRecord, string) {
 	var filedata fileRecord
 	filedata.folderPath = file["folderPath"].(string)
@@ -68,4 +76,13 @@ func getServer(server bson.M) DataNode {
 	}
 	dnode.Addr = server["serverAddr"].(string)
 	return dnode
+}
+
+func getLogRecord(log bson.M) logRecord {
+	var logdata logRecord
+	logdata.address = log["serverAddr"].(string)
+	logdata.lastUpdated = log["time"].(primitive.DateTime).Time()
+	logdata.operation = log["operation"].(string)
+	logdata.fileId = log["fileId"].(string)
+	return logdata
 }

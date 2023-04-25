@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 type DataNode struct {
 	Addr    string
@@ -40,18 +43,54 @@ type GetReplicationNodesReply struct {
 }
 
 type DoneArgs struct {
-	FileId    string
-	FileSize  int64
-	Operation string
+	FileId           string
+	FileSize         int64
+	Operation        string
+	ReplicationNodes []string
+	doneTime         time.Time
 }
+
+const (
+	/* File operations */
+	INSERT = "insert"
+	CREATE = "create"
+	DELETE = "delete"
+)
 
 type DoneReply struct {
 	Status bool
 }
 
+type PingArgs struct {
+	Addr string
+	// FreeSpace int
+}
+
+type FileLog struct {
+	Addr        string
+	Operation   string
+	FileId      string
+	FileSize    int
+	LastUpdated time.Time
+}
+
+type PingReply struct {
+	Logs []FileLog
+}
+
 func (c *Coordinator) Ping(args *PingArgs, reply *PingReply) error {
 	log.Println("Pinging Master", args)
-	reply.Status = c.mcon.updateDataNode(args.Addr, true) > 0
+	c.mcon.updatePing(args.Addr)
+	logs := c.mcon.getInconsistentLogs(args.Addr)
+	for _, log := range logs {
+		reply.Logs = append(reply.Logs, FileLog{
+			Addr:        log.address,
+			Operation:   log.operation,
+			FileId:      log.fileId,
+			FileSize:    log.fileSize,
+			LastUpdated: log.lastUpdated,
+		})
+	}
 	return nil
 }
 
@@ -69,5 +108,9 @@ func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *
 func (c *Coordinator) Done(args *DoneArgs, reply *DoneReply) error {
 	log.Println("DoneReq:", args.Operation, "on file", args.FileId, "file size is now", args.FileSize)
 	reply.Status = c.mcon.updateFileDone(args.FileId, args.FileSize) > 0
+	for _, node := range args.ReplicationNodes {
+		// c.mcon.updateServerLastOperation(node, args.Operation)
+		c.mcon.updateLogsNode(node, args.FileId, args.Operation, args.doneTime)
+	}
 	return nil
 }

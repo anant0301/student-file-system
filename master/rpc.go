@@ -94,12 +94,3 @@ type UpdateFileSizeArgs struct {
 type UpdateFileSizeReply struct {
 	Done int
 }
-
-type PingArgs struct {
-	Addr      string
-	FreeSpace int
-}
-
-type PingReply struct {
-	Status bool
-}
