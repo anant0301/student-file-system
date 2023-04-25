@@ -121,20 +121,29 @@ type InsertFolderReply struct {
 }
 
 type PingArgs struct {
-	Addr      string
-	FreeSpace int
-	//Id        int
+    Addr      string
+    //FreeSpace int
+}
+
+type FileLog struct {
+    Addr      string
+    Operation string
+    FileId    string
+	FileSize  int64
+	lastUpdated	time.Time
 }
 
 type PingReply struct {
-	Status bool
-	//Id     int
+    //PrevStatus bool
+    Logs    []FileLog
 }
 
 type DoneArgs struct {
 	FileId    string
 	Operation string
 	FileSize  int64
+	ReplicationNodes []string
+	doneTime	time.Time
 }
 
 type DoneReply struct {
