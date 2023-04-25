@@ -6,13 +6,35 @@ import (
 
 func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) error {
 	// c.mcon.insertFile(args.FilePath, args.FileName)
-	log.Println("InsertFileReq", args.FolderPath, args.FileName, args.FileSize)
-	result := c.mcon.getFile(args.FolderPath, args.FileName)
-	if result.id != "" {
-		reply.FileId = "File already exists"
+
+	log.Println("GetFile")
+	var result fileRecord
+	result = c.mcon.getFile(args.FolderPath, args.FileName)
+	reply.AccessToken = "AccessToken"
+	reply.File.FileId = result.id
+	reply.File.FileName = result.fileName
+	reply.File.FileModified = result.lastModified
+	reply.File.FileSize = result.fileSize
+	reply.File.IsFolder = false
+
+	if !c.mcon.getLock(reply.File.FileId) {
+		reply.IsLocked = false
 		return nil
+	} else {
+		reply.IsLocked = true
 	}
-	reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, args.FileSize)
+	dnodes := c.mcon.getServers()
+	flag := false
+	for _, dnode := range dnodes {
+		if dnode.IsAlive == true {
+			reply.NodeAddr = dnode.Addr
+			flag = true
+			break
+		}
+	}
+	if flag {
+		c.mcon.releaseLock(result.id)
+	}
 	return nil
 }
 
@@ -23,11 +45,6 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 		reply.DeleteCount = 0
 		return nil
 	}
-	// lock := c.mcon.getLock(file.id)
-	// if lock == false {
-	// 	reply.DeleteCount = -1
-	// 	return nil
-	// }
 
 	var dnodes []DataNode
 	dnodes = c.mcon.getServers()
@@ -48,14 +65,12 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 			break
 		}
 	}
-	// c.mcon.releaseLock(file.id)
-
 	return nil
 }
 
 func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
-	var result fileRecord
 	log.Println("GetFile")
+	var result fileRecord
 	result = c.mcon.getFile(args.FolderPath, args.FileName)
 
 	reply.AccessToken = "AccessToken"
@@ -115,6 +130,12 @@ func (c *Coordinator) CreateFile(args *CreateFileArgs, reply *CreateFileReply) e
 	return nil
 }
 
+// func (c *Coordinator) RenameFile(args *RenameFileArgs, reply *RenameFileReply) error {
+// 	log.Println("RenameFileReq")
+// 	reply.Done = c.mcon.renameFile(args.FileId, args.NewFileName)
+// 	return nil
+// }
+
 func (c *Coordinator) ListFiles(args *ListFilesArgs, reply *ListFilesReply) error {
 	// c.mcon.getFilesFromFolder("/home/test1/Desktop")
 	// c.mcon.getFile("/home/test1/Desktop", "test1.txt")
@@ -139,6 +160,7 @@ func (c *Coordinator) ListFiles(args *ListFilesArgs, reply *ListFilesReply) erro
 		storefile.IsFolder = true
 		reply.Files = append(reply.Files, storefile)
 	}
+	log.Println("ListFilesReply:", reply)
 	return nil
 }
 

@@ -25,11 +25,13 @@ type InsertFileArgs struct {
 	UserToken  string
 	FolderPath string
 	FileName   string
-	FileSize   int
 }
 
 type InsertFileReply struct {
-	FileId string
+	NodeAddr    string
+	IsLocked    bool
+	AccessToken string
+	File        FileStruct
 }
 
 type DeleteFileArgs struct {
@@ -74,6 +76,20 @@ type CreateFileArgs struct {
 type CreateFileReply struct {
 	FileId     string
 	ServerAddr string
+}
+
+type RenameFileArgs struct {
+	UserToken  string
+	OldPath    string
+	NewPath    string
+	OldName    string
+	NewName    string
+	IsFolder   bool
+	ModifiedAt time.Time
+}
+
+type RenameFileReply struct {
+	Success bool
 }
 
 type DeleteFolderArgs struct {

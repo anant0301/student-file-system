@@ -109,6 +109,7 @@ func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *
 func (c *Coordinator) Done(args *DoneArgs, reply *DoneReply) error {
 	log.Println("DoneReq:", args.Operation, "on file", args.FileId, "file size is now", args.FileSize)
 	reply.Status = c.mcon.updateFileDone(args.FileId, args.FileSize) > 0
+	c.mcon.releaseLock(args.FileId)
 	for _, node := range args.ReplicationNodes {
 		// c.mcon.updateServerLastOperation(node, args.Operation)
 		c.mcon.updateLogsNode(node, args.FileId, args.Operation, args.doneTime)
