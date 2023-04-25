@@ -370,11 +370,3 @@ func (mcon *MongoConnector) getInconsistentLogs(serverId string) []logRecord {
 	}
 	return result
 }
-
-func (mcon *MongoConnector) getSerevrAddr(fileId string) string {
-	collection := mcon.getCollection("logs")
-	var result bson.M
-	collection.FindOne(context.TODO(), bson.M{"fileId": fileId}).Decode(&result)
-
-	return result["serverAddr"].(string)
-}

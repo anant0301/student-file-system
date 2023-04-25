@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"time"
 )
 
 func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) error {
@@ -79,7 +78,13 @@ func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
 		reply.File.FileSize = result.fileSize
 		reply.File.IsFolder = false
 	}
-	reply.NodeAddr = c.mcon.getSerevrAddr(reply.File.FileId)
+	dnodes := c.mcon.getServers()
+	for _, dnode := range dnodes {
+		if dnode.IsAlive == true {
+			reply.NodeAddr = dnode.Addr
+			break
+		}
+	}
 	return nil
 }
 
@@ -100,7 +105,6 @@ func (c *Coordinator) CreateFile(args *CreateFileArgs, reply *CreateFileReply) e
 			if ok := c.DialDataNode(dnode.Addr, "DataNode.CreateFile_m", &createArgs, &createReply); ok == nil {
 				reply.ServerAddr = dnode.Addr
 				reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, 0)
-				c.mcon.updateLogsNode(dnode.Addr, reply.FileId, CREATE, time.Now())
 			} else {
 				reply.ServerAddr = ""
 			}
