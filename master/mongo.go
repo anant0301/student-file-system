@@ -120,7 +120,7 @@ func (mcon *MongoConnector) releaseLock(fileId string) bool {
 	}
 
 	var result bson.M
-	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id}, bson.M{"done": true}, &opt).Decode(&result)
+	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id, "done": false}, bson.M{"done": true}, &opt).Decode(&result)
 	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
 		return false
 	}
