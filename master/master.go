@@ -48,6 +48,7 @@ func InitServer() *Coordinator {
 
 func (c *Coordinator) DialDataNode(serverAddr string, rpcCall string, args interface{}, reply interface{}) error {
 	client, err := rpc.DialHTTP("tcp", serverAddr)
+	defer client.Close()
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
