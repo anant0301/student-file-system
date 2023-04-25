@@ -3,62 +3,24 @@ package main
 import (
 	"fmt"
 	"time"
+	"os"
+	"strconv"
 )
-
-// func getFileTest(master *rpc.Coordinator, filename string) {
-// 	args := GetFileArgs_m{
-// 		FileName:   filename,
-// 		FolderPath: "/home/test1/Desktop",
-// 	}
-// 	reply := GetFileReply_m{}
-// 	master.Call("DataNode.GetFile_m", &args, &reply)
-// 	fmt.Println("Args:", args, "reply:", reply)
-// }
-
-// func insertFileTest(master *rpc.Coordinator, filename string) {
-// 	args := InsertFileArgs_m{
-// 		FileName:   filename,
-// 		FolderPath: "/home/test1/Desktop",
-// 		FileSize:   100,
-// 	}
-// 	reply := InsertFileReply_m{}
-// 	master.Call("DataNode.InsertFile_m", &args, &reply)
-// 	fmt.Println("Args:", args, "reply:", reply)
-// }
-
-// func deleteFileTest(master *rpc.Coordinator, filename string) {
-// 	args := DeleteFileArgs_m{
-// 		FileName:   filename,
-// 		FolderPath: "/home/test1/Desktop",
-// 	}
-// 	reply := DeleteFileReply_m{}
-// 	master.Call("DataNode.DeleteFile_m", &args, &reply)
-// 	fmt.Println("Args:", args, "reply:", reply)
-// }
-
-// func (c *Coordinator) InsertFile_done() {
-// 	//update database about insert file at all datanodes specified
-// }
-
-// func main() {
-// 	//client, err := rpc.DialHTTP("tcp", "localhost:9000")
-// 	// if err != nil {
-// 	// 	log.Println("Error in dialing rpc:", err)
-// 	// }
-// 	// insertFileTest(master, "test1.txt")
-// 	// insertFileTest(master, "test2.txt")
-// 	// getFileTest(master, "test1.txt")
-// 	// getFileTest(master, "test2.txt")
-// 	// deleteFileTest(master, "test1.txt")
-// 	InitServer()
-// }
 
 func main() {
 	c := InitServer()
 	fmt.Println("Server has started")
+	c.DataDirectory=os.Args[2]
+	//dataDirectory:=os(mkdir)
+	//fmt.Printf("%v\n", os.Args[1])
+	//fmt.Printf("%v\n", os.Args[2])
+	var host string=os.Args[1]
+	var port int
+	port,_=strconv.Atoi(os.Args[2])
+	fmt.Println(host,port)
 	fmt.Printf("%v\n", c.DataDirectory)
 	for {
-		c.Ping()
-		time.Sleep(time.Second * 30)
+		c.Ping(host,port)
+		time.Sleep(time.Second * 5)
 	}
 }
