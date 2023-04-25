@@ -98,6 +98,23 @@ func (mcon *MongoConnector) getLock(fileId string) bool {
 	return result["done"].(bool)
 }
 
+func (mcon *MongoConnector) releaseLock(fileId string) bool {
+	collection := mcon.getCollection("files")
+	id, err := primitive.ObjectIDFromHex(fileId)
+	var result bson.M
+	err = collection.FindOneAndUpdate(context.TODO(), bson.M{
+		"_id": id,
+	}, bson.M{
+		"$set": bson.M{
+			"done": true,
+		},
+	}).Decode(&result)
+	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
+		return false
+	}
+	return true
+}
+
 /* CRUD operations for file structure */
 func (mcon *MongoConnector) insertFile(folderPath string, fileName string, fileSize int) string {
 	collection := mcon.getCollection("files")
@@ -115,17 +132,17 @@ func (mcon *MongoConnector) insertFile(folderPath string, fileName string, fileS
 	// _id.(primitive.ObjectID).Hex()
 }
 
-func (mcon *MongoConnector) getFile(folderPath string, fileName string) (fileRecord, string) {
+func (mcon *MongoConnector) getFile(folderPath string, fileName string) fileRecord {
 	collection := mcon.getCollection("files")
 	var result bson.M
 	query := bson.M{"folderPath": folderPath, "fileName": fileName}
 	err := collection.FindOne(context.TODO(), query).Decode(&result)
 	if mcon.dbAssert(err != nil, "Error in getting file", err) {
-		return fileRecord{}, ""
+		return fileRecord{}
 	}
-	filedata, nodeAddr := getFileRecord(result)
+	filedata := getFileRecord(result)
 	fmt.Println(filedata)
-	return filedata, nodeAddr
+	return filedata
 }
 
 func (mcon *MongoConnector) updateFileSize(fileId string, fileSize int) int {
@@ -158,7 +175,7 @@ func (mcon *MongoConnector) getFilesFromFolder(folderPath string) []fileRecord {
 	var result bson.M
 	for cur.Next(context.TODO()) {
 		cur.Decode(&result)
-		file, _ := getFileRecord(result)
+		file := getFileRecord(result)
 		filedata = append(filedata, file)
 	}
 	return filedata
@@ -180,8 +197,6 @@ func (mcon *MongoConnector) getFoldersFromFolder(parentFolder string) []folderRe
 		cur.Decode(&result)
 		folderdata = append(folderdata, getFolderRecord(result))
 	}
-
-	fmt.Println(folderdata)
 	return folderdata
 }
 
@@ -284,8 +299,9 @@ func (mcon *MongoConnector) updateFileDone(fileId string, fileSize int64) int {
 
 func (mcon *MongoConnector) updatePing(serverId string) int {
 	collection := mcon.getCollection("servers")
+	opts := options.Update().SetUpsert(true)
 	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"serverAddr": serverId},
-		bson.M{"$set": bson.M{"time": primitive.NewDateTimeFromTime(time.Now())}})
+		bson.M{"$set": bson.M{"time": primitive.NewDateTimeFromTime(time.Now())}}, opts)
 	mcon.dbAssert(err != nil, "Error in updating server last operation", err)
 	return int(updated_id.ModifiedCount)
 }
@@ -353,4 +369,12 @@ func (mcon *MongoConnector) getInconsistentLogs(serverId string) []logRecord {
 		result = append(result, log)
 	}
 	return result
+}
+
+func (mcon *MongoConnector) getSerevrAddr(fileId string) string {
+	collection := mcon.getCollection("logs")
+	var result bson.M
+	collection.FindOne(context.TODO(), bson.M{"fileId": fileId}).Decode(&result)
+
+	return result["serverAddr"].(string)
 }

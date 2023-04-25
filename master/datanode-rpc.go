@@ -20,6 +20,7 @@ type InsertFileReply_m struct {
 
 type CreateFileArgs_m struct {
 	UserToken string
+	FileId    string
 }
 
 type CreateFileReply_m struct {

@@ -1,11 +1,14 @@
 package main
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) error {
 	// c.mcon.insertFile(args.FilePath, args.FileName)
 	log.Println("InsertFileReq", args.FolderPath, args.FileName, args.FileSize)
-	result, _ := c.mcon.getFile(args.FolderPath, args.FileName)
+	result := c.mcon.getFile(args.FolderPath, args.FileName)
 	if result.id != "" {
 		reply.FileId = "File already exists"
 		return nil
@@ -16,7 +19,7 @@ func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) e
 
 func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) error {
 	log.Println("DeleteFileReq:", args.FolderPath, args.FileName)
-	file, _ := c.mcon.getFile(args.FolderPath, args.FileName)
+	file := c.mcon.getFile(args.FolderPath, args.FileName)
 	if file.id == "" {
 		reply.DeleteCount = 0
 		return nil
@@ -46,6 +49,7 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 			break
 		}
 	}
+	// c.mcon.releaseLock(file.id)
 
 	return nil
 }
@@ -53,7 +57,8 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
 	var result fileRecord
 	log.Println("GetFile")
-	result, reply.NodeAddr = c.mcon.getFile(args.FolderPath, args.FileName)
+	result = c.mcon.getFile(args.FolderPath, args.FileName)
+
 	reply.AccessToken = "AccessToken"
 	if result.id == "" {
 		var folder folderRecord
@@ -74,6 +79,7 @@ func (c *Coordinator) GetFile(args *GetFileArgs, reply *GetFileReply) error {
 		reply.File.FileSize = result.fileSize
 		reply.File.IsFolder = false
 	}
+	reply.NodeAddr = c.mcon.getSerevrAddr(reply.File.FileId)
 	return nil
 }
 
@@ -94,6 +100,7 @@ func (c *Coordinator) CreateFile(args *CreateFileArgs, reply *CreateFileReply) e
 			if ok := c.DialDataNode(dnode.Addr, "DataNode.CreateFile_m", &createArgs, &createReply); ok == nil {
 				reply.ServerAddr = dnode.Addr
 				reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, 0)
+				c.mcon.updateLogsNode(dnode.Addr, reply.FileId, CREATE, time.Now())
 			} else {
 				reply.ServerAddr = ""
 			}

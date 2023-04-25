@@ -40,14 +40,14 @@ type logRecord struct {
 	fileSize    int
 }
 
-func getFileRecord(file bson.M) (fileRecord, string) {
+func getFileRecord(file bson.M) fileRecord {
 	var filedata fileRecord
 	filedata.folderPath = file["folderPath"].(string)
 	filedata.fileName = file["fileName"].(string)
 	filedata.id = file["_id"].(primitive.ObjectID).Hex()
 	filedata.lastModified = file["lastModified"].(primitive.DateTime).Time()
 	filedata.fileSize = 100
-	return filedata, file["serverAddr"].(string)
+	return filedata
 }
 
 func getFolderRecord(folder bson.M) folderRecord {

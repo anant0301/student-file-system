@@ -23,7 +23,7 @@ func insertFileTest(client *rpc.Client, filename string) {
 		FileSize:   100,
 	}
 	reply := InsertFileReply{}
-	client.Call("Coordinator.InsertFile", &args, &reply)
+	client.Call("Coordinator.CreateFile", &args, &reply)
 	fmt.Println("Args:", args, "reply:", reply)
 }
 
