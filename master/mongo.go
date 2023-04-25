@@ -91,7 +91,7 @@ func (mcon *MongoConnector) getLock(fileId string) bool {
 	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
 		return false
 	}
-	upsert := true
+	upsert := false
 	after := options.After
 	opt := options.FindOneAndUpdateOptions{
 		ReturnDocument: &after,
@@ -112,7 +112,7 @@ func (mcon *MongoConnector) releaseLock(fileId string) bool {
 	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
 		return false
 	}
-	upsert := true
+	upsert := false
 	after := options.After
 	opt := options.FindOneAndUpdateOptions{
 		ReturnDocument: &after,
