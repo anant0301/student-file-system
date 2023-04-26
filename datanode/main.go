@@ -24,11 +24,12 @@ func main() {
 	var port int
 	port, _ = strconv.Atoi(os.Args[2])
 	Me = host + ":" + strconv.Itoa(port)
+	c.Me = Me
 
 	fmt.Println(host, port)
 	fmt.Printf("%v\n", c.DataDirectory)
 	for {
 		c.Ping(host, port)
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 10)
 	}
 }
