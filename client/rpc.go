@@ -130,6 +130,17 @@ type GetFileReply_c struct {
 	Data   []byte
 }
 
+type RenameFileArgs struct {
+	OldPath string
+	NewPath string
+	OldName string
+	NewName string
+}
+
+type RenameFileReply struct {
+	Status bool
+}
+
 // send an RPC request to the coordinator, wait for the response.
 // usually returns true.
 // returns false if something goes wrong.

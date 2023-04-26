@@ -24,6 +24,8 @@ const (
 	FOLDER = true
 )
 
+var rootPath string
+
 // File System Node Structure
 type FSNode struct {
 	// Must embed an Inode for the struct to work as a node.
@@ -52,6 +54,7 @@ func getDir(path string) ([]File, error) {
 
 	err := Call("Coordinator.ListFiles", listFilesArgs, &listFilesReply)
 
+	log.Println("ListFilesReply: ", listFilesReply)
 	if err != nil {
 		fmt.Println("Coordinator.ListFiles error: ", err)
 		return files, err
@@ -155,7 +158,7 @@ var _ = (fs.NodeLookuper)((*FSNode)(nil))
 // It returns the file with the given name
 func (n *FSNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	// Get the file from the server
-
+	log.Println("Lookup: ", name, "n:", n)
 	file, err := getFile(n.file, name)
 
 	if err != nil {
@@ -241,6 +244,7 @@ func (n *FSNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off in
 	err1 := CallDataNode(getFileReply.NodeAddr, "DataNode.GetFile_c", getFileArg_c, &getFileReply_c)
 
 	if err1 != nil {
+		log.Println("Read Get File Reply:", getFileReply)
 		log.Println("Error in GetFile_c RPC in Read", err)
 		return fuse.ReadResultData(dest), syscall.ECONNABORTED
 	}
@@ -268,7 +272,7 @@ var _ = (fs.NodeGetattrer)((*FSNode)(nil))
 func (n *FSNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	fmt.Println("Getattr:", n.file.name)
+	log.Println("Getattr:", n.file.name)
 	out.Size = uint64(n.file.sz)
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
 
@@ -318,8 +322,8 @@ func (n *FSNode) Write(ctx context.Context, fh fs.FileHandle, buf []byte, off in
 	}
 
 	getFileReply := GetFileReply{}
-
 	log.Println("Write Get File Args:", getFileArgs)
+	log.Println("Write Get File Offset:", off)
 
 	err := Call("Coordinator.GetFile", getFileArgs, &getFileReply)
 	if err != nil {
@@ -499,6 +503,8 @@ func (n *FSNode) Unlink(ctx context.Context, name string) syscall.Errno {
 		fmt.Println("Unlink: Error in calling Coordinator.DeleteFile", err)
 	}
 
+	log.Println("Unlink: DeleteFileReply:", deleteFileReply)
+
 	return 0
 }
 
@@ -518,16 +524,87 @@ func (n *FSNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	return 0
 }
 
+var _ = (fs.NodeSetlker)((*FSNode)(nil))
+
+func (n *FSNode) Setlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	log.Println("Setlk:", lk)
+	log.Println("Setlk: File:", n.file)
+	return 0
+}
+
+var _ = (fs.NodeGetlker)((*FSNode)(nil))
+
+func (n *FSNode) Getlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) syscall.Errno {
+	log.Println("Getlk:", lk)
+	log.Println("Getlk: File:", n.file)
+	return 0
+}
+
+var _ = (fs.NodeSetlkwer)((*FSNode)(nil))
+
+func (n *FSNode) Setlkw(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	log.Println("Setlkw:", lk)
+	log.Println("Setlkw: File:", n.file)
+	return 0
+}
+
+var _ = (fs.NodeRenamer)((*FSNode)(nil))
+
+func (n *FSNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
+	log.Println("Rename: Name", name)
+	log.Println("Rename: NewName", newName)
+
+	entireParentName := ""
+	parentPointer := newParent.EmbeddedInode()
+
+	for parentPointer != nil {
+		parentName, p := parentPointer.Parent()
+		parentPointer = p
+		entireParentName = parentName + "/" + entireParentName
+	}
+	entireParentName = rootPath + entireParentName
+	log.Println("Rename: ParentName", entireParentName)
+	newParentName := entireParentName[:len(entireParentName)-1]
+	oldParentName := getFilePath(n.file)
+
+	args := RenameFileArgs{
+		OldPath: oldParentName,
+		NewPath: newParentName,
+		OldName: name,
+		NewName: newName,
+	}
+
+	reply := RenameFileReply{}
+	log.Println("Rename: Args", args)
+	err := Call("Coordinator.RenameFile", args, &reply)
+
+	if err != nil {
+		log.Println("Rename: Error in calling Coordinator.RenameFile", err)
+	}
+
+	log.Println("Rename: Reply", reply)
+
+	return 0
+}
+
 func main() {
 	// This is where we'll mount the FS
 	mntDir := "/tmp/sfs"
+
 	os.Mkdir(mntDir, 0777)
-	root := &FSNode{file: File{name: "test1", parentPath: "/home", id: 0, fileType: FOLDER}}
+	rootName := "test1"
+	rootParent := "/home"
+	root := &FSNode{file: File{name: rootName, parentPath: rootParent, id: 0, fileType: FOLDER}}
+
+	rootPath = rootParent + "/" + rootName
+
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
 			AllowOther: true,
 			// Set to true to see how the file system works.
-			Debug: true,
+			Debug:         true,
+			DisableXAttrs: true,
+			EnableLocks:   true,
 		},
 	})
 	if err != nil {
