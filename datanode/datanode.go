@@ -8,7 +8,6 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
-
 	//"gopkg.in/ini.v1"
 )
 
@@ -18,6 +17,7 @@ type DataNode struct {
 	FreeSpace     int
 	Heartbeat     int
 	ClientToken   string
+	Me            string
 	DataDirectory string
 }
 
@@ -44,9 +44,9 @@ func InitServer() *DataNode {
 	//fmt.Println("RPC Conenction", host, port)
 	c := DataNode{}
 	//c.Ping()
-	var host string=os.Args[1]
+	var host string = os.Args[1]
 	var port int
-	port,_=strconv.Atoi(os.Args[2])
+	port, _ = strconv.Atoi(os.Args[2])
 	//fmt.Println(host,port)
 	c.server(host, port)
 	return &c
