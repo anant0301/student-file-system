@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"net/rpc"
 	"os"
-	"time"
 	"strconv"
+	"time"
 )
 
 var MasterAddr = "10.7.50.133:9000"
-var Me = "10.0.60.100:9000"
 
-func (dataNode *DataNode) Ping(host string,port int) error {
+// func (dataNode *DataNode) DialRPCMaster
+
+func (dataNode *DataNode) Ping(host string, port int) error {
 	dataNodeInstance, rpcErr := rpc.DialHTTP("tcp", MasterAddr)
 	if rpcErr != nil {
 		//panic(rpcErr)
@@ -23,7 +24,7 @@ func (dataNode *DataNode) Ping(host string,port int) error {
 	request := PingArgs{}
 	reply := PingReply{}
 	//request.Addr = "10.0.60.100:9000"
-	request.Addr=host+":"+strconv.Itoa(port)
+	request.Addr = host + ":" + strconv.Itoa(port)
 
 	fmt.Println("Ping to master")
 	// request2:=*GetReplicationNodes_Args
@@ -36,7 +37,7 @@ func (dataNode *DataNode) Ping(host string,port int) error {
 		fmt.Println(rpcErr)
 	}
 
-	if len(reply.Logs)>0{
+	if len(reply.Logs) > 0 {
 		dataNode.UpdateMyself(&reply)
 	}
 
@@ -44,11 +45,11 @@ func (dataNode *DataNode) Ping(host string,port int) error {
 	return nil
 }
 
-func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
+func (dataNode *DataNode) UpdateMyself(reply *PingReply) error {
 	fmt.Println("Update myself")
-	for _,filelog:=range reply.Logs{
-		
-		if filelog.Operation == "insert"{
+	for _, filelog := range reply.Logs {
+
+		if filelog.Operation == "insert" {
 
 			dataNodeInstance, rpcErr := rpc.DialHTTP("tcp", filelog.Addr)
 			if rpcErr != nil {
@@ -57,11 +58,11 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 			}
 			defer dataNodeInstance.Close()
 
-			request2:=GetFileArgs_c{}
-			reply2:=GetFileReply_c{}
-			request2.FileId=filelog.FileId
-			request2.Offset=0
-			request2.SizeOfChunk=filelog.FileSize
+			request2 := GetFileArgs_c{}
+			reply2 := GetFileReply_c{}
+			request2.FileId = filelog.FileId
+			request2.Offset = 0
+			request2.SizeOfChunk = filelog.FileSize
 
 			rpcErr = dataNodeInstance.Call("DataNode.GetFile_c", &request2, &reply2)
 			if rpcErr != nil {
@@ -70,15 +71,15 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				continue
 				//return rpcErr
 			}
-			if reply2.Status==true{
-				err := os.Remove(request2.FileId)
+			if reply2.Status == true {
+				err := os.Remove(dataNode.DataDirectory + request2.FileId)
 				if err != nil {
 					//panic(err)
 					//reply.Status = false
 					fmt.Println("Err in remove file")
 					continue
 				}
-				file1, err2 := os.Create(request2.FileId)
+				file1, err2 := os.Create(dataNode.DataDirectory + request2.FileId)
 				if err2 != nil {
 					//panic(err)
 					fmt.Println("Err in recreating file")
@@ -86,7 +87,7 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				}
 				//defer file1.Close()
 				_, err = file1.WriteAt(reply2.Data, request2.Offset)
-				if err!=nil{
+				if err != nil {
 					fmt.Println(err)
 					continue
 					//return nil
@@ -96,7 +97,7 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				if rpcErr != nil {
 					//panic(rpcErr)
 					fmt.Println(rpcErr)
-						continue
+					continue
 				}
 				//defer dataNodeInstance3.Close()
 
@@ -105,9 +106,9 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				request3.FileSize = filelog.FileSize
 				request3.Operation = "insert"
 				var RepNodes []string
-				RepNodes=append(RepNodes,Me)
-				request3.ReplicationNodes=RepNodes
-				request3.doneTime=filelog.lastUpdated
+				RepNodes = append(RepNodes, Me)
+				request3.ReplicationNodes = RepNodes
+				request3.doneTime = filelog.lastUpdated
 				// request3.BytesWritten = NoOfBytes
 				reply3 := DoneReply{}
 
@@ -117,16 +118,16 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 					fmt.Println(rpcErr)
 					continue
 				}
-				fmt.Println("Sending Done to Master Successful",reply3.Status)
+				fmt.Println("Sending Done to Master Successful", reply3.Status)
 				dataNodeInstance3.Close()
 				dataNodeInstance.Close()
 				file1.Close()
-			}			
+			}
 		}
 
-		if filelog.Operation =="create"{
+		if filelog.Operation == "create" {
 			//fmt.Println("Got Create file request from client")
-			name, err2 := os.Create(filelog.FileId)
+			name, err2 := os.Create(dataNode.DataDirectory + filelog.FileId)
 			fmt.Println(err2, name)
 			if err2 != nil {
 				//panic(err)
@@ -147,9 +148,9 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 			request3.FileSize = filelog.FileSize
 			request3.Operation = "create"
 			var RepNodes []string
-			RepNodes=append(RepNodes,Me)
-			request3.ReplicationNodes=RepNodes
-			request3.doneTime=filelog.lastUpdated
+			RepNodes = append(RepNodes, Me)
+			request3.ReplicationNodes = RepNodes
+			request3.doneTime = filelog.lastUpdated
 			// request3.BytesWritten = NoOfBytes
 			reply3 := DoneReply{}
 
@@ -159,13 +160,13 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				fmt.Println(rpcErr)
 				continue
 			}
-			fmt.Println("Sending Done to Master Successful",reply3.Status)
+			fmt.Println("Sending Done to Master Successful", reply3.Status)
 			dataNodeInstance3.Close()
 			//dataNodeInstance.Close()
 		}
-		if filelog.Operation=="delete"{
+		if filelog.Operation == "delete" {
 			//fmt.Println("Got Create file request from client")
-			err2 := os.Remove(filelog.FileId)
+			err2 := os.Remove(dataNode.DataDirectory + filelog.FileId)
 			if err2 != nil {
 				//panic(err)
 				fmt.Println(err2)
@@ -185,9 +186,9 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 			request3.FileSize = filelog.FileSize
 			request3.Operation = "delete"
 			var RepNodes []string
-			RepNodes=append(RepNodes,Me)
-			request3.ReplicationNodes=RepNodes
-			request3.doneTime=filelog.lastUpdated
+			RepNodes = append(RepNodes, Me)
+			request3.ReplicationNodes = RepNodes
+			request3.doneTime = filelog.lastUpdated
 			// request3.BytesWritten = NoOfBytes
 			reply3 := DoneReply{}
 
@@ -197,11 +198,11 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 				fmt.Println(rpcErr)
 				continue
 			}
-			fmt.Println("Sending Done to Master Successful",reply3.Status)
+			fmt.Println("Sending Done to Master Successful", reply3.Status)
 			dataNodeInstance3.Close()
 			//dataNodeInstance.Close()
 		}
-		    
+
 	}
 	return nil
 }
@@ -209,13 +210,13 @@ func (dataNode *DataNode) UpdateMyself(reply *PingReply)error {
 func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertFileReply_c) error {
 	var NoOfBytes int64
 	if request.Offset == 0 {
-		err := os.Remove(request.FileId)
+		err := os.Remove(dataNode.DataDirectory + request.FileId)
 		if err != nil {
 			//panic(err)
 			reply.Status = false
 			return err
 		}
-		file1, err2 := os.Create(request.FileId)
+		file1, err2 := os.Create(dataNode.DataDirectory + request.FileId)
 		if err2 != nil {
 			//panic(err)
 			reply.Status = false
@@ -223,7 +224,7 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 		}
 		defer file1.Close()
 		_, err = file1.WriteAt(request.Data, request.Offset)
-		if err!=nil{
+		if err != nil {
 			fmt.Println(err)
 			//return nil
 		}
@@ -234,16 +235,16 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 			fmt.Println(err)
 			reply.Status = false
 		}
-		fmt.Println( fi.Size() )
-		NoOfBytes=fi.Size()
+		fmt.Println(fi.Size())
+		NoOfBytes = fi.Size()
 		reply.Status = true
 
 	} else {
-		file, err := os.OpenFile(request.FileId, os.O_RDWR, 0644)
+		file, err := os.OpenFile(dataNode.DataDirectory+request.FileId, os.O_RDWR, 0644)
 		if err != nil {
 			//panic(err)
 			reply.Status = false
-			fmt.Println("Open",err)
+			fmt.Println("Open", err)
 			return err
 		}
 		defer file.Close()
@@ -255,17 +256,17 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 		if err != nil {
 			//panic(err)
 			reply.Status = false
-			fmt.Println("Write",err)
+			fmt.Println("Write", err)
 			return err
 		}
 		fi, err := file.Stat()
 		if err != nil {
 			//log.Fatal(err)
-			fmt.Println("Stats",err)
+			fmt.Println("Stats", err)
 			reply.Status = false
 		}
-		fmt.Println( fi.Size() )
-		NoOfBytes=fi.Size()
+		fmt.Println(fi.Size())
+		NoOfBytes = fi.Size()
 		reply.Status = true
 	}
 
@@ -301,20 +302,20 @@ func (dataNode *DataNode) InsertFile_c(request *InsertFileArgs_c, reply *InsertF
 func (dataNode *DataNode) forwardedForReplicationInsert(request *InsertFileArgs_c, reply *InsertFileReply_c) error {
 	// var NoOfBytes int64
 	if request.Offset == 0 {
-		err := os.Remove(request.FileId)
+		err := os.Remove(dataNode.DataDirectory + request.FileId)
 		if err != nil {
 			//panic(err)
 			reply.Status = false
 			return err
 		}
-		file1, err2 := os.Create(request.FileId)
+		file1, err2 := os.Create(dataNode.DataDirectory + request.FileId)
 		if err2 != nil {
 			//panic(err)
 			reply.Status = false
 			return err
 		}
 		_, err = file1.WriteAt(request.Data, request.Offset)
-		if err!=nil{
+		if err != nil {
 			fmt.Println(err)
 			//return nil
 		}
@@ -325,7 +326,7 @@ func (dataNode *DataNode) forwardedForReplicationInsert(request *InsertFileArgs_
 			fmt.Println(err)
 			reply.Status = false
 		}
-		fmt.Println( fi.Size() )
+		fmt.Println(fi.Size())
 		// NoOfBytes=fi.Size()
 		reply.Status = true
 
@@ -353,7 +354,7 @@ func (dataNode *DataNode) forwardedForReplicationInsert(request *InsertFileArgs_
 			fmt.Println(err)
 			reply.Status = false
 		}
-		fmt.Println( fi.Size() )
+		fmt.Println(fi.Size())
 		// NoOfBytes=fi.Size()
 		reply.Status = true
 	}
@@ -384,7 +385,7 @@ func (dataNode *DataNode) forwardForReplicationInsert(NoOfBytes int64, request *
 		//panic(rpcErr)
 		//reply2.Status = false
 		//return rpcErr
-		reply.Status=false
+		reply.Status = false
 		return nil
 	}
 	fmt.Println("got replication Nodes")
@@ -413,9 +414,9 @@ func (dataNode *DataNode) forwardForReplicationInsert(NoOfBytes int64, request *
 		}
 	}
 	fmt.Println(reply.Status)
-	reply.FileSize=NoOfBytes
+	reply.FileSize = NoOfBytes
 	fmt.Println(reply.FileSize)
-	if reply.Status ==true{
+	if reply.Status == true {
 		fmt.Println("Sending Done to Master")
 		dataNodeInstance3, rpcErr := rpc.DialHTTP("tcp", MasterAddr)
 		if rpcErr != nil {
@@ -429,8 +430,8 @@ func (dataNode *DataNode) forwardForReplicationInsert(NoOfBytes int64, request *
 		request3.FileId = request.FileId
 		request3.FileSize = NoOfBytes
 		request3.Operation = "insert"
-		request3.ReplicationNodes=reply2.ReplicationNodes
-		request3.doneTime=time.Now()
+		request3.ReplicationNodes = reply2.ReplicationNodes
+		request3.doneTime = time.Now()
 		// request3.BytesWritten = NoOfBytes
 		reply3 := DoneReply{}
 
@@ -440,7 +441,7 @@ func (dataNode *DataNode) forwardForReplicationInsert(NoOfBytes int64, request *
 			reply.Status = false
 			return rpcErr
 		}
-		fmt.Println("Sending Done to Master Successful",reply3.Status)
+		fmt.Println("Sending Done to Master Successful", reply3.Status)
 
 	}
 
@@ -456,7 +457,7 @@ func (dataNode *DataNode) DeleteFile_m(request *DeleteFileArgs_m, reply *DeleteF
 	// 	reply.Status = false
 	// 	return err
 	// }
-	err2 := os.Remove(request.FileId)
+	err2 := os.Remove(dataNode.DataDirectory + request.FileId)
 	fmt.Println(err2)
 	if err2 != nil {
 		//panic(err)
@@ -475,16 +476,15 @@ func (dataNode *DataNode) DeleteFile_m(request *DeleteFileArgs_m, reply *DeleteF
 	return nil
 }
 
-
 func (dataNode *DataNode) forwardedForReplicationDelete(request *DeleteFileArgs_m, reply *DeleteFileReply_m) error {
 
-	err := os.Remove(request.FileId)
+	err := os.Remove(dataNode.DataDirectory + request.FileId)
 	if err != nil {
 		//panic(err)
 		reply.Status = false
 		return err
 	}
-	// _, err2 := os.Create(request.FileId)
+	// _, err2 := os.Create(dataNode.DataDirectory+request.FileId)
 	// if err2 != nil {
 	// 	//panic(err)
 	// 	reply.Status = false
@@ -497,12 +497,13 @@ func (dataNode *DataNode) forwardedForReplicationDelete(request *DeleteFileArgs_
 
 func (dataNode *DataNode) forwardForReplicationDelete(request *DeleteFileArgs_m, reply *DeleteFileReply_m) error {
 	fmt.Println("forwardForReplication")
-	//reply.Status = true
+	reply.Status = true
 	for _, addr := range request.ReplicationNodes {
-
+		fmt.Println(addr)
 		if addr == Me {
 			continue
 		}
+
 		dataNodeInstance, rpcErr := rpc.DialHTTP("tcp", addr)
 
 		if rpcErr != nil {
@@ -531,7 +532,7 @@ func (dataNode *DataNode) GetFile_c(request *GetFileArgs_c, reply *GetFileReply_
 	// *reply = DataNodeData{Data: string(dataBytes)}
 	// return nil
 
-	file, err := os.OpenFile(request.FileId, os.O_RDWR, 0644)
+	file, err := os.OpenFile(dataNode.DataDirectory+request.FileId, os.O_RDWR, 0644)
 	if err != nil {
 		//panic(err)
 		reply.Status = false
@@ -558,11 +559,12 @@ func (dataNode *DataNode) GetFile_c(request *GetFileArgs_c, reply *GetFileReply_
 
 func (dataNode *DataNode) CreateFile_m(request *CreateFileArgs_m, reply *CreateFileReply_m) error {
 	fmt.Println("Got Create file request from master")
-	if dataNode.ClientToken == request.UserToken {
-		reply.Status = true
-	} else {
-		reply.Status = false
-	}
+	dataNode.ClientToken = request.UserToken
+	// if dataNode.ClientToken == request.UserToken {
+	reply.Status = true
+	// } else {
+	// reply.Status = false
+	// }
 
 	return nil
 }
@@ -586,16 +588,15 @@ func (dataNode *DataNode) GetFile_m(request *GetFileArgs_m, reply *GetFileReply_
 	return nil
 }
 
-
 func (dataNode *DataNode) CreateFile_c(request *CreateFileArgs_c, reply *CreateFileReply_c) error {
 	fmt.Println("Got Create file request from client")
-	// err := os.Remove(request.FileId)
+	// err := os.Remove(dataNode.DataDirectory+request.FileId)
 	// if err != nil {
 	// 	//panic(err)
 	// 	reply.Status = false
 	// 	return err
 	// }
-	name, err2 := os.Create(request.FileId)
+	name, err2 := os.Create(dataNode.DataDirectory + request.FileId)
 	fmt.Println(err2, name)
 	if err2 != nil {
 		//panic(err)
@@ -615,13 +616,13 @@ func (dataNode *DataNode) CreateFile_c(request *CreateFileArgs_c, reply *CreateF
 
 func (dataNode *DataNode) forwardedForReplicationCreate(request *InsertFileArgs_c, reply *InsertFileReply_c) error {
 
-	err := os.Remove(request.FileId)
+	err := os.Remove(dataNode.DataDirectory + request.FileId)
 	if err != nil {
 		//panic(err)
 		reply.Status = false
 		return err
 	}
-	_, err2 := os.Create(request.FileId)
+	_, err2 := os.Create(dataNode.DataDirectory + request.FileId)
 	if err2 != nil {
 		//panic(err)
 		reply.Status = false
@@ -653,7 +654,7 @@ func (dataNode *DataNode) forwardForReplicationCreate(request *CreateFileArgs_c,
 		//panic(rpcErr)
 		//reply2.Status = false
 		//return rpcErr
-		reply.Status=false
+		reply.Status = false
 		return nil
 	}
 	fmt.Println("got replication Nodes")
@@ -682,7 +683,7 @@ func (dataNode *DataNode) forwardForReplicationCreate(request *CreateFileArgs_c,
 		}
 	}
 	fmt.Println(reply.Status)
-	if reply.Status ==true {
+	if reply.Status == true {
 		fmt.Println("Sending Done to Master")
 		dataNodeInstance3, rpcErr := rpc.DialHTTP("tcp", MasterAddr)
 		if rpcErr != nil {
@@ -696,9 +697,9 @@ func (dataNode *DataNode) forwardForReplicationCreate(request *CreateFileArgs_c,
 		request3.FileId = request.FileId
 		request3.FileSize = 0
 		request3.Operation = "create"
-		request3.doneTime=time.Now()
+		request3.doneTime = time.Now()
 		// request3.BytesWritten = NoOfBytes
-		request3.doneTime=time.Now()
+		request3.doneTime = time.Now()
 		reply3 := DoneReply{}
 
 		rpcErr = dataNodeInstance3.Call("Coordinator.Done", &request3, &reply3)
@@ -707,7 +708,7 @@ func (dataNode *DataNode) forwardForReplicationCreate(request *CreateFileArgs_c,
 			reply.Status = false
 			return rpcErr
 		}
-		fmt.Println("Sending Done to Master Successful",reply3.Status)
+		fmt.Println("Sending Done to Master Successful", reply3.Status)
 
 	}
 
