@@ -122,7 +122,7 @@ type GetFileArgs_c struct {
 	AccessToken string
 	FileId      string
 	Offset      int64
-	SizeOfChunk int64
+	SizeOfChunk int
 }
 
 type GetFileReply_c struct {

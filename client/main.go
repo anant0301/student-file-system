@@ -64,7 +64,14 @@ func getDir(path string) ([]File, error) {
 
 	for _, file := range listFilesReply.Files {
 		id, _ := strconv.ParseUint(file.FileId[8:], 16, 64)
-		f := File{name: file.FileName, id: id, fileType: file.IsFolder, sz: uint64(file.FileSize), idString: file.FileId}
+		f := File{
+			name:         file.FileName,
+			id:           id,
+			idString:     file.FileId,
+			fileType:     file.IsFolder,
+			sz:           uint64(file.FileSize),
+			modifiedTime: file.FileModified,
+		}
 		files = append(files, f)
 	}
 
@@ -158,6 +165,7 @@ var _ = (fs.NodeLookuper)((*FSNode)(nil))
 // It returns the file with the given name
 func (n *FSNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	// Get the file from the server
+	log.Println("Lookup called !!")
 	log.Println("Lookup: ", name, "n:", n)
 	file, err := getFile(n.file, name)
 
@@ -237,7 +245,7 @@ func (n *FSNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off in
 		AccessToken: "abc",
 		FileId:      n.file.idString,
 		Offset:      int64(off),
-		SizeOfChunk: int64(len(dest)),
+		SizeOfChunk: int(len(dest)),
 	}
 	getFileReply_c := GetFileReply_c{}
 
@@ -277,7 +285,7 @@ func (n *FSNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOu
 	out.Owner = fuse.Owner{Uid: 1000, Gid: 1000}
 
 	// setting last modified time
-	// out.SetTimes(nil, &n.file.modifiedTime, nil)
+	out.SetTimes(nil, &n.file.modifiedTime, nil)
 
 	return 0
 }
@@ -524,30 +532,6 @@ func (n *FSNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	return 0
 }
 
-var _ = (fs.NodeSetlker)((*FSNode)(nil))
-
-func (n *FSNode) Setlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
-	log.Println("Setlk:", lk)
-	log.Println("Setlk: File:", n.file)
-	return 0
-}
-
-var _ = (fs.NodeGetlker)((*FSNode)(nil))
-
-func (n *FSNode) Getlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) syscall.Errno {
-	log.Println("Getlk:", lk)
-	log.Println("Getlk: File:", n.file)
-	return 0
-}
-
-var _ = (fs.NodeSetlkwer)((*FSNode)(nil))
-
-func (n *FSNode) Setlkw(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
-	log.Println("Setlkw:", lk)
-	log.Println("Setlkw: File:", n.file)
-	return 0
-}
-
 var _ = (fs.NodeRenamer)((*FSNode)(nil))
 
 func (n *FSNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
@@ -583,6 +567,7 @@ func (n *FSNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbe
 	}
 
 	log.Println("Rename: Reply", reply)
+	// newParent.EmbeddedInode().NotifyEntry(newName)
 
 	return 0
 }
@@ -597,7 +582,7 @@ func main() {
 	root := &FSNode{file: File{name: rootName, parentPath: rootParent, id: 0, fileType: FOLDER}}
 
 	rootPath = rootParent + "/" + rootName
-
+	timeoutTime := time.Duration(1 * time.Second)
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
 			AllowOther: true,
@@ -606,6 +591,8 @@ func main() {
 			DisableXAttrs: true,
 			EnableLocks:   true,
 		},
+		// AttrTimeout:  &timeoutTime,
+		EntryTimeout: &timeoutTime,
 	})
 	if err != nil {
 		log.Panic(err)
