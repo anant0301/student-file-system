@@ -44,11 +44,11 @@ type GetReplicationNodesReply struct {
 }
 
 type DoneArgs struct {
-	FileId           string
-	FileSize         int64
-	Operation        string
-	ReplicationNodes []string
-	doneTime         time.Time
+	FileId    string
+	FileSize  int
+	Operation string
+	NodeAddr  string
+	DoneTime  time.Time
 }
 
 const (
@@ -92,6 +92,7 @@ func (c *Coordinator) Ping(args *PingArgs, reply *PingReply) error {
 			LastUpdated: log.lastUpdated,
 		})
 	}
+	log.Println("Pings Logs", reply.Logs)
 	return nil
 }
 
@@ -108,11 +109,9 @@ func (c *Coordinator) GetReplicationNodes(args *GetReplicationNodesArgs, reply *
 
 func (c *Coordinator) Done(args *DoneArgs, reply *DoneReply) error {
 	log.Println("DoneReq:", args.Operation, "on file", args.FileId, "file size is now", args.FileSize)
-	reply.Status = c.mcon.updateFileDone(args.FileId, args.FileSize) > 0
+	reply.Status = c.mcon.updateFileDone(args.FileId, args.FileSize, args.DoneTime) > 0
+	log.Println("args.DoneTime", args.DoneTime)
+	c.mcon.updateLogsNode(args.NodeAddr, args.FileId, args.Operation, args.DoneTime)
 	c.mcon.releaseLock(args.FileId)
-	for _, node := range args.ReplicationNodes {
-		// c.mcon.updateServerLastOperation(node, args.Operation)
-		c.mcon.updateLogsNode(node, args.FileId, args.Operation, args.doneTime)
-	}
 	return nil
 }

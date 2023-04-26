@@ -50,7 +50,8 @@ func (c *Coordinator) DialDataNode(serverAddr string, rpcCall string, args inter
 	client, err := rpc.DialHTTP("tcp", serverAddr)
 	defer client.Close()
 	if err != nil {
-		log.Fatal("dialing:", err)
+		log.Println("dialing:", err)
+		return err
 	}
 	// Synchronous call
 	ok := client.Call(rpcCall, args, reply)

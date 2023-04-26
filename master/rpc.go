@@ -79,17 +79,15 @@ type CreateFileReply struct {
 }
 
 type RenameFileArgs struct {
-	UserToken  string
-	OldPath    string
-	NewPath    string
-	OldName    string
-	NewName    string
-	IsFolder   bool
-	ModifiedAt time.Time
+	UserToken string
+	OldPath   string
+	NewPath   string
+	OldName   string
+	NewName   string
 }
 
 type RenameFileReply struct {
-	Success bool
+	Status bool
 }
 
 type DeleteFolderArgs struct {

@@ -46,7 +46,7 @@ func getFileRecord(file bson.M) fileRecord {
 	filedata.fileName = file["fileName"].(string)
 	filedata.id = file["_id"].(primitive.ObjectID).Hex()
 	filedata.lastModified = file["lastModified"].(primitive.DateTime).Time()
-	filedata.fileSize = 100
+	filedata.fileSize = int(file["fileSize"].(int32))
 	return filedata
 }
 
@@ -80,8 +80,8 @@ func getServer(server bson.M) DataNode {
 
 func getLogRecord(log bson.M) logRecord {
 	var logdata logRecord
-	logdata.address = log["serverAddr"].(string)
-	logdata.lastUpdated = log["time"].(primitive.DateTime).Time()
+	logdata.address = log["serverId"].(string)
+	logdata.lastUpdated = log["lastUpdated"].(primitive.DateTime).Time()
 	logdata.operation = log["operation"].(string)
 	logdata.fileId = log["fileId"].(string)
 	return logdata

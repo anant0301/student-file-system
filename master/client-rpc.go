@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 )
 
 func (c *Coordinator) InsertFile(args *InsertFileArgs, reply *InsertFileReply) error {
@@ -59,10 +60,12 @@ func (c *Coordinator) DeleteFile(args *DeleteFileArgs, reply *DeleteFileReply) e
 			ok := c.DialDataNode(dnode.Addr, "DataNode.DeleteFile_m", &DeleteArgs, &DeleteReply)
 			if ok == nil && DeleteReply.Status {
 				reply.DeleteCount = c.mcon.deleteFile(args.FolderPath, args.FileName)
+				// reply.DeleteCount = c.mcon.deleteLogs(args.FolderPath, args.FileName)
+				c.mcon.updateLogsNode(dnode.Addr, file.id, DELETE, time.Now())
+				break
 			} else {
 				reply.DeleteCount = 0
 			}
-			break
 		}
 	}
 	return nil
@@ -120,21 +123,33 @@ func (c *Coordinator) CreateFile(args *CreateFileArgs, reply *CreateFileReply) e
 			if ok := c.DialDataNode(dnode.Addr, "DataNode.CreateFile_m", &createArgs, &createReply); ok == nil {
 				reply.ServerAddr = dnode.Addr
 				reply.FileId = c.mcon.insertFile(args.FolderPath, args.FileName, 0)
+				break
 			} else {
 				reply.ServerAddr = ""
 			}
-			break
 		}
 	}
 	log.Println("Reply:", reply)
 	return nil
 }
 
-// func (c *Coordinator) RenameFile(args *RenameFileArgs, reply *RenameFileReply) error {
-// 	log.Println("RenameFileReq")
-// 	reply.Done = c.mcon.renameFile(args.FileId, args.NewFileName)
-// 	return nil
-// }
+func (c *Coordinator) RenameFile(args *RenameFileArgs, reply *RenameFileReply) error {
+	log.Println("RenameFileReq:", args.OldPath, args.OldName, args.NewPath, args.NewName)
+	file := c.mcon.getFile(args.OldPath, args.OldName)
+	if file.id == "" {
+		folder := c.mcon.getFolder(args.OldPath, args.OldName)
+		if folder.folderId == "" {
+			reply.Status = false
+			return nil
+		} else {
+			// reply.Status = c.mcon.renameFolder(args.OldPath, args.OldName, args.NewPath, args.NewName)
+			return nil
+		}
+	}
+
+	reply.Status = c.mcon.renameFile(args.OldPath, args.OldName, args.NewPath, args.NewName)
+	return nil
+}
 
 func (c *Coordinator) ListFiles(args *ListFilesArgs, reply *ListFilesReply) error {
 	// c.mcon.getFilesFromFolder("/home/test1/Desktop")

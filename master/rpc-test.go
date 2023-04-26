@@ -20,7 +20,6 @@ func insertFileTest(client *rpc.Client, filename string) {
 	args := InsertFileArgs{
 		FileName:   filename,
 		FolderPath: "/home/test1/Desktop",
-		FileSize:   100,
 	}
 	reply := InsertFileReply{}
 	client.Call("Coordinator.CreateFile", &args, &reply)

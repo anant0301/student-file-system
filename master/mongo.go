@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -30,7 +29,7 @@ func (mcon *MongoConnector) getCollection(collectionName string) *mongo.Collecti
 func (mcon *MongoConnector) connect() {
 	cfg, err := ini.Load(".ini")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error in parsing .ini file for mongo credentials\n")
+		log.Println("Error in parsing .ini file for mongo credentials\n")
 		os.Exit(1)
 	}
 	var uri string = cfg.Section("mongodb").Key("uri").String()
@@ -41,8 +40,8 @@ func (mcon *MongoConnector) connect() {
 		Username: cfg.Section("mongodb").Key("username").String(),
 		Password: cfg.Section("mongodb").Key("password").String(),
 	}
-	// fmt.Println(credential)
-	// fmt.Println("MongoDB URI:", options.Client().ApplyURI(uri).SetAuth(credential))
+	// log.Println(credential)
+	// log.Println("MongoDB URI:", options.Client().ApplyURI(uri).SetAuth(credential))
 	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	// defer cancel()
 	mcon.client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(uri).SetAuth(credential))
@@ -50,11 +49,11 @@ func (mcon *MongoConnector) connect() {
 		log.Fatal(os.Stderr, "Invalid MongoDB URI\n")
 		panic(err)
 	} else {
-		fmt.Println("Connected to MongoDB")
+		log.Println("Connected to MongoDB")
 	}
 	mcon.db = mcon.client.Database(db)
 	mcon.colls = make(map[string]*mongo.Collection)
-	// fmt.Println(cursor)
+	// log.Println(cursor)
 }
 
 func (mcon *MongoConnector) disconnect() {
@@ -75,7 +74,7 @@ func (mcon *MongoConnector) getUser(username string) userRecord {
 		return userRecord{}
 	}
 	var userdata userRecord = getUserRecord(result)
-	fmt.Println(result)
+	log.Println(result)
 	return userdata
 }
 
@@ -88,7 +87,7 @@ func (mcon *MongoConnector) deleteUser(username string) {
 func (mcon *MongoConnector) getLock(fileId string) bool {
 	collection := mcon.getCollection("files")
 	id, err := primitive.ObjectIDFromHex(fileId)
-	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
+	if mcon.dbAssert(err != nil, "Error converting string to ObjectId", err) {
 		return false
 	}
 	upsert := false
@@ -99,7 +98,7 @@ func (mcon *MongoConnector) getLock(fileId string) bool {
 	}
 
 	var result bson.M
-	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id, "done": true}, bson.M{"done": false}, &opt).Decode(&result)
+	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id, "done": true}, bson.M{"$set": bson.M{"done": false}}, &opt).Decode(&result)
 	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
 		return false
 	}
@@ -109,7 +108,7 @@ func (mcon *MongoConnector) getLock(fileId string) bool {
 func (mcon *MongoConnector) releaseLock(fileId string) bool {
 	collection := mcon.getCollection("files")
 	id, err := primitive.ObjectIDFromHex(fileId)
-	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
+	if mcon.dbAssert(err != nil, "Error converting string to ObjectId", err) {
 		return false
 	}
 	upsert := false
@@ -120,7 +119,7 @@ func (mcon *MongoConnector) releaseLock(fileId string) bool {
 	}
 
 	var result bson.M
-	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id, "done": false}, bson.M{"done": true}, &opt).Decode(&result)
+	err = collection.FindOneAndUpdate(context.TODO(), bson.M{"_id": id, "done": false}, bson.M{"$set": bson.M{"done": true}}, &opt).Decode(&result)
 	if mcon.dbAssert(err != nil, "Error in releasing lock", err) {
 		return false
 	}
@@ -136,7 +135,7 @@ func (mcon *MongoConnector) insertFile(folderPath string, fileName string, fileS
 		"lastModified": primitive.NewDateTimeFromTime(time.Now()),
 		"done":         false,
 	})
-	// fmt.Println("Result:", inserted_id)
+	// log.Println("Result:", inserted_id)
 	mcon.dbAssert(err != nil, "Error in inserting file", err)
 	return inserted_id.InsertedID.(primitive.ObjectID).Hex()
 	// _id.(primitive.ObjectID).Hex()
@@ -152,15 +151,16 @@ func (mcon *MongoConnector) getFile(folderPath string, fileName string) fileReco
 		return fileRecord{}
 	}
 	filedata := getFileRecord(result)
-	fmt.Println(filedata)
+	log.Println(filedata)
 	return filedata
 }
 
 func (mcon *MongoConnector) updateFileSize(fileId string, fileSize int) int {
 	collection := mcon.getCollection("files")
 	id, err := primitive.ObjectIDFromHex(fileId)
+	mcon.dbAssert(err != nil, "Error in creating bson", err)
 	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id},
-		bson.M{"$set": bson.M{"fileSize": fileSize}})
+		bson.M{"$set": bson.M{"$fileSize": fileSize}})
 	mcon.dbAssert(err != nil, "Error in updating file size", err)
 	return int(updated_id.ModifiedCount)
 }
@@ -168,9 +168,11 @@ func (mcon *MongoConnector) updateFileSize(fileId string, fileSize int) int {
 func (mcon *MongoConnector) getFileSize(fileId string) int {
 	collection := mcon.getCollection("files")
 	id, err := primitive.ObjectIDFromHex(fileId)
+	mcon.dbAssert(err != nil, "Error in creating bson", err)
 	var result bson.M
 	err = collection.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&result)
-	mcon.dbAssert(err != nil, "Error in updating file size", err)
+	mcon.dbAssert(err != nil, "Error in getting file size", err)
+	log.Println("GetFileSize", result, fileId)
 	return int(result["fileSize"].(int32))
 }
 
@@ -219,6 +221,17 @@ func (mcon *MongoConnector) deleteFile(folderPath string, fileName string) int {
 	return int(deleted_id.DeletedCount)
 }
 
+func (mcon *MongoConnector) renameFile(oldPath string, oldName string, newPath string, newName string) bool {
+	collection := mcon.getCollection("files")
+	collection.DeleteOne(context.TODO(), bson.M{"folderPath": newPath, "fileName": newName})
+	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"folderPath": oldPath, "fileName": oldName},
+		bson.M{"$set": bson.M{"folderPath": newPath, "fileName": newName}})
+	if mcon.dbAssert(err != nil, "Error in renaming file", err) {
+		return false
+	}
+	return updated_id.ModifiedCount == 1
+}
+
 /* CRUD Folder operations */
 func (mcon *MongoConnector) insertFolder(parentFolder string, folderName string) (string, time.Time) {
 	collection := mcon.getCollection("folders")
@@ -253,6 +266,17 @@ func (mcon *MongoConnector) deleteFolder(parentFolder string, folderName string)
 	deleted_id, err := collection.DeleteOne(context.TODO(), bson.M{"parentFolder": parentFolder, "folderName": folderName})
 	mcon.dbAssert(err != nil, "Error in deleting folder", err)
 	return int(deleted_id.DeletedCount)
+}
+
+func (mcon *MongoConnector) renameFolder(oldPath string, oldName string, newPath string, newName string) bool {
+	collection := mcon.getCollection("folders")
+
+	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"parentFolder": oldPath, "folderName": oldName},
+		bson.M{"$set": bson.M{"parentFolder": newPath, "folderName": newName}})
+	if mcon.dbAssert(err != nil, "Error in renaming folder", err) {
+		return false
+	}
+	return updated_id.ModifiedCount == 1
 }
 
 func (mcon *MongoConnector) dbAssert(condition bool, message string, err error) bool {
@@ -300,12 +324,12 @@ func (mcon *MongoConnector) updateDataNode(serverAddr string) int {
 	return int(upid.ModifiedCount)
 }
 
-func (mcon *MongoConnector) updateFileDone(fileId string, fileSize int64) int {
+func (mcon *MongoConnector) updateFileDone(fileId string, fileSize int, doneTime time.Time) int {
 	collection := mcon.getCollection("files")
 	id, err := primitive.ObjectIDFromHex(fileId)
 	updated_id, err := collection.UpdateOne(context.TODO(), bson.M{"_id": id},
 		bson.M{"$set": bson.M{
-			"fileSize": fileSize, "lastModified": primitive.NewDateTimeFromTime(time.Now()),
+			"fileSize": fileSize, "lastModified": primitive.NewDateTimeFromTime(doneTime),
 			"done": true,
 		}})
 	mcon.dbAssert(err != nil, "Error in updating file size", err)
@@ -335,56 +359,66 @@ func (mcon *MongoConnector) updateLogsNode(serverId string, fileId string, opera
 	return ""
 }
 
-func (mcon *MongoConnector) getServerLastOpTime(serverId string) (string, time.Time) {
-	collection := mcon.getCollection("servers")
+func (mcon *MongoConnector) getServerLastOpTime(serverId string) time.Time {
+	collection := mcon.getCollection("logs")
 	var result bson.M
-	matchStage := bson.D{bson.E{"$match", bson.E{"serverAddr", serverId}}}
-	groupStage := bson.D{
-		bson.E{
-			"$group", bson.D{
-				bson.E{"_id", "$fileId"},
-				bson.E{"max", bson.D{bson.E{"$max", "$time"}}},
-			}}}
-
-	cur, err := collection.Aggregate(context.TODO(), mongo.Pipeline{matchStage, groupStage})
+	opts := options.Find().SetSort(bson.D{{"enrollment", -1}})
+	cur, err := collection.Find(context.TODO(), bson.M{
+		"serverId": serverId,
+	}, opts)
+	if err != nil {
+		log.Println("Error in getting logs")
+		return time.Time{}
+	}
 	for cur.Next(context.TODO()) {
 		cur.Decode(&result)
+		break
 	}
-	if mcon.dbAssert(err != nil, "Error in getting server", err) {
-		return "", time.Now().Add(-30 * time.Minute)
+	log.Println("resutls", result)
+	if result != nil {
+		return result["lastUpdated"].(primitive.DateTime).Time()
 	}
-	if result == nil {
-		return "", time.Now().Add(-30 * time.Minute)
-	}
-	return result["fileId"].(string), result["time"].(primitive.DateTime).Time()
+	return time.Time{}
 }
 
 func (mcon *MongoConnector) getInconsistentLogs(serverId string) []logRecord {
 	collection := mcon.getCollection("logs")
-	fileId, aliveTime := mcon.getServerLastOpTime(serverId)
-	if fileId == "" {
-		return []logRecord{}
-	}
+	aliveTime := mcon.getServerLastOpTime(serverId)
+	// if aliveTime.Sub(time.Time{}) == 0 {
+	// 	aliveTime = time.Now().Sin
+	// }
+
 	var result []logRecord
+
 	cur, err := collection.Find(
 		context.TODO(),
 		bson.M{
-			"fileId": fileId,
 			"lastUpdated": bson.M{
 				"$gt": primitive.NewDateTimeFromTime(aliveTime),
 			}})
 	if mcon.dbAssert(err != nil, "Error in getting logs", err) {
+		log.Println("Error in getting logs")
 		return []logRecord{}
 	}
+
 	for cur.Next(context.TODO()) {
 		var elem bson.M
 		err := cur.Decode(&elem)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log := getLogRecord(elem)
-		log.fileSize = mcon.getFileSize(log.fileId)
-		result = append(result, log)
+		if elem["serverId"] == serverId {
+			continue
+		}
+		log.Println("elem", elem)
+		logdata := getLogRecord(elem)
+		if logdata.lastUpdated.Sub(aliveTime) < 0 {
+			continue
+		}
+		if logdata.operation != "delete" {
+			logdata.fileSize = mcon.getFileSize(logdata.fileId)
+		}
+		result = append(result, logdata)
 	}
 	return result
 }
