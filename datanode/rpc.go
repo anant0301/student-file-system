@@ -28,14 +28,14 @@ type GetReplicationNodesReply struct {
 }
 
 type InsertFileArgs_c struct {
-	Data         []byte
-	FileId       string
-	Offset       int64
+	Data   []byte
+	FileId string
+	Offset int64
 }
 
 type InsertFileReply_c struct {
-	Status bool
-	FileSize	int64
+	Status   bool
+	FileSize int64
 }
 
 type InsertFileArgs_m struct {
@@ -99,7 +99,7 @@ type GetFileArgs_c struct {
 	AccessToken string
 	FileId      string
 	Offset      int64
-	SizeOfChunk int64
+	SizeOfChunk int
 }
 type GetFileReply_c struct {
 	Status bool
@@ -121,41 +121,42 @@ type InsertFolderReply struct {
 }
 
 type PingArgs struct {
-    Addr      string
-    //FreeSpace int
+	Addr string
+	//FreeSpace int
 }
 
 type FileLog struct {
-    Addr      string
-    Operation string
-    FileId    string
-	FileSize  int64
-	lastUpdated	time.Time
+	Addr        string
+	Operation   string
+	FileId      string
+	FileSize    int
+	LastUpdated time.Time
 }
 
 type PingReply struct {
-    //PrevStatus bool
-    Logs    []FileLog
+	//PrevStatus bool
+	Logs []FileLog
 }
 
 type DoneArgs struct {
-	FileId    string
-	Operation string
-	FileSize  int64
+	FileId           string
+	Operation        string
+	FileSize         int
 	ReplicationNodes []string
-	doneTime	time.Time
+	DoneTime         time.Time
+	NodeAddr         string
 }
 
 type DoneReply struct {
 	Status bool
 }
 
-type DeleteFileArgs_m struct{
-	FileId string
+type DeleteFileArgs_m struct {
+	FileId           string
 	ReplicationNodes []string
-	UserToken	string
+	UserToken        string
 }
 
-type DeleteFileReply_m struct{
+type DeleteFileReply_m struct {
 	Status bool
 }
