@@ -1,0 +1,62 @@
+use admin
+db.createUser(
+  {
+    user: "sfs-admin",
+    pwd: "completelysecretadmin password", // or cleartext password
+    roles: [
+      { role: "userAdminAnyDatabase", db: "admin" },
+      { role: "readWriteAnyDatabase", db: "admin" }
+    ],
+    mechanisms:[  
+      "SCRAM-SHA-1"
+   ]
+  }
+)
+
+use sfs_db
+# use sfs
+db.createUser(
+  {
+    user: "sfs_user",
+    pwd:  "supersecret password",   // or cleartext password
+    roles: [ { role: "readWrite", db: "sfs" },
+             { role: "read", db: "admin" } ],
+    mechanisms:[
+      "SCRAM-SHA-1"
+   ]
+  }
+)
+
+db.auth("sfs_user", "supersecret password")
+
+db.users.insertOne({username: 'test1', password: 'test1' })
+
+db.files.insertOne({folderPath: '/home/test1/Desktop', fileName: 'test1-shared'})
+db.files.insertOne({folderPath: '/home/test1/Desktop', fileName: 'test1-shared'})
+db.files.insertOne({folderPath: '/home/test1/Desktop', fileName: 'test1-private'})
+
+
+use simple
+db.createUser(
+  {
+    user: "sfs",
+    pwd:  "supersecret",   // or cleartext password
+    roles: [ { role: "readWrite", db: "sfs" },
+             { role: "read", db: "admin" } ],
+  }
+)
+
+db.auth("sfs", "supersecret")
+
+
+use filedb
+db.createUser(
+  {
+    user: "filedb",
+    pwd:  "supersecret",   // or cleartext password
+    roles: [ { role: "readWrite", db: "filedb" },
+             { role: "read", db: "admin" } ],
+  }
+)
+
+db.auth("filedb", "supersecret")

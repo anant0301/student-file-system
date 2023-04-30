@@ -585,7 +585,7 @@ func main() {
 	timeoutTime := time.Duration(1 * time.Second)
 	server, err := fs.Mount(mntDir, root, &fs.Options{
 		MountOptions: fuse.MountOptions{
-			AllowOther: true,
+			// AllowOther: true,
 			// Set to true to see how the file system works.
 			Debug:         true,
 			DisableXAttrs: true,

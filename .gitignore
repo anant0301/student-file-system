@@ -13,13 +13,6 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
-<<<<<<< HEAD
 master/mserver
 master/master
 master/rpc-test
-master/mongo.users
-=======
-
-data-*/
-main
->>>>>>> 4b18f2e1c7349681563de5c8f598e2a8047e895e
