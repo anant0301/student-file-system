@@ -1,0 +1,74 @@
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .Trash
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .Trash-1000
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+File created in master {6444f3e664c68bbb43935aff 10.0.60.100:9000}
+File created in dn {true}
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swx
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swx
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+File created in master {6444f3e664c68bbb43935b0a 10.0.60.100:9000}
+File created in dn {true}
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swx
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swx
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swx
+Unlink: .tst.txt.swx
+Unlink: File: {test1 0  true 0 /home  {0 0 <nil>} }
+Unlink: DeleteFileArgs: {123  /home/test1 .tst.txt.swx}
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Unlink: .tst.txt.swp
+Unlink: File: {test1 0  true 0 /home  {0 0 <nil>} }
+Unlink: DeleteFileArgs: {123  /home/test1 .tst.txt.swp}
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+File created in master {6444f3e664c68bbb43935b21 10.0.60.100:9000}
+File created in dn {true}
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name tst.txt
+Parent {test1 0  true 0 /home  {0 0 <nil>} }
+Name .tst.txt.swp
