@@ -572,13 +572,26 @@ func (n *FSNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbe
 	return 0
 }
 
+var MasterAddr string
+
 func main() {
 	// This is where we'll mount the FS
-	mntDir := "/tmp/sfs"
+	if len(os.Args) != 5 {
+		fmt.Println("Usage: ./client <master-addr> <mount-dir> <root-parent> <root-name>")
+		return
+	}
 
-	os.Mkdir(mntDir, 0777)
-	rootName := "test1"
-	rootParent := "/home"
+	MasterAddr = os.Args[1]
+	mntDir := os.Args[2]
+	rootParent := os.Args[3]
+	rootName := os.Args[4]
+
+	err := os.Mkdir(mntDir, 0777)
+	if err != nil {
+		log.Fatal("Error in creating mount directory: ", err)
+		return
+	}
+
 	root := &FSNode{file: File{name: rootName, parentPath: rootParent, id: 0, fileType: FOLDER}}
 
 	rootPath = rootParent + "/" + rootName
@@ -604,16 +617,4 @@ func main() {
 	// Wait until unmount before exiting
 	server.Wait()
 
-	// FOR TESTING RPC CALLS
-
-	// a := new(big.Int)
-	// ListFilesArgs := GetFileArgs{UserToken: "abc", FileId: *a, FileName: "abc.txt", FolderPath: "/root"}
-	// ListFilesReply := GetFileReply{}
-
-	// fmt.Println(ListFilesReply)
-
-	// err := Call("Coordinator.GetFile", &ListFilesArgs, &ListFilesReply)
-
-	// fmt.Println(err)
-	// fmt.Println(ListFilesReply)
 }

@@ -146,7 +146,7 @@ type RenameFileReply struct {
 // returns false if something goes wrong.
 func Call(rpcname string, args interface{}, reply interface{}) error {
 
-	c, err := rpc.DialHTTP("tcp", "10.7.50.133"+":9000")
+	c, err := rpc.DialHTTP("tcp", MasterAddr)
 
 	if err != nil {
 		fmt.Println("Can't connect to server: ", err)
