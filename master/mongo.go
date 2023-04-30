@@ -151,6 +151,9 @@ func (mcon *MongoConnector) getFile(folderPath string, fileName string) fileReco
 		return fileRecord{}
 	}
 	filedata := getFileRecord(result)
+	logCollection := mcon.getCollection("logs")
+	logCollection.FindOne(context.TODO(), bson.M{"fileId": filedata.id}).Decode(&result)
+	filedata.lastModified = result["lastModified"].(primitive.DateTime).Time()
 	log.Println(filedata)
 	return filedata
 }
